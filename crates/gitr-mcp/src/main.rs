@@ -5,6 +5,7 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct JsonRpcRequest {
     jsonrpc: String,
     id: Option<Value>,

@@ -60,7 +60,7 @@ enum WorktreeCommands {
     /// Create or switch to a worktree
     Switch {
         branch: String,
-        /// Worktree path (defaults to ./<branch>)
+        /// Worktree path (defaults to `./<branch>`)
         #[arg(short, long)]
         path: Option<PathBuf>,
     },
