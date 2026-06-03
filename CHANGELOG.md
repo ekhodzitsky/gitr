@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `parse.rs` updated to match omk logic: proper `merge-tree` conflict detection,
   `parse_log`, `parse_remotes`, `parse_has_diff`.
 - `repo.rs` adds `diff_files`, `push_force`, `open_worktree`.
+- `tracing` feature is now optional; `repo.rs` compiles without it.
 
 ### Fixed
 
@@ -22,10 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Testing
 
-- Ported 20+ unit tests from omk: status, branch, worktree, merge-tree, commit,
-  stash, diff, fetch, checkout error paths.
-- Added hermetic `command` tests: timeout, retry, is_retryable.
+- Ported 30+ unit tests from omk: status, branch, worktree, merge-tree, commit,
+  stash, diff, fetch, checkout, push, merge, rebase, add error paths.
+- Added hermetic `command` tests: timeout, retry, is_retryable, output fields.
 - Added parse-only unit tests with sample porcelain output.
+- Coverage: 89.1% (335/376 lines).
+
+### CI
+
+- Added `typos` job.
+- Added `dependency-review` job for PR gating.
+- Added `cargo-hack` job for feature powerset testing.
+- Coverage threshold raised to 85%.
 
 ## [0.1.0] - 2026-06-02
 

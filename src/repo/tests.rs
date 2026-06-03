@@ -94,6 +94,40 @@ async fn test_head_commit() {
 }
 
 #[tokio::test]
+async fn test_head_commit_full() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    let sha = repo.head_commit_full().await.unwrap();
+    assert_eq!(sha.len(), 40);
+}
+
+#[tokio::test]
+async fn test_status_and_porcelain() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+
+    // Clean repo
+    let status = repo.status().await.unwrap();
+    assert!(status.staged.is_empty());
+    assert!(status.unstaged.is_empty());
+    assert!(status.untracked.is_empty());
+
+    let porcelain = repo.status_porcelain().await.unwrap();
+    assert!(porcelain.is_empty());
+
+    // Dirty repo
+    std::fs::write(tmp.path().join("new.txt"), "new").unwrap();
+    let status = repo.status().await.unwrap();
+    assert!(status.untracked.contains(&"new.txt".to_string()));
+}
+
+#[tokio::test]
 async fn test_changed_files() {
     if !git_available() {
         return;
@@ -157,6 +191,22 @@ async fn test_worktree_add_existing_path() {
 }
 
 #[tokio::test]
+async fn test_open_worktree() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    repo.branch_create("wt-test", None).await.unwrap();
+    let wt_path = tmp.path().join("wt");
+    repo.worktree_add(&wt_path, "wt-test").await.unwrap();
+
+    let wt_repo = Repository::open_worktree(&wt_path).await.unwrap();
+    let branch = wt_repo.current_branch().await.unwrap();
+    assert_eq!(branch, "wt-test");
+}
+
+#[tokio::test]
 async fn test_branch_create_delete() {
     if !git_available() {
         return;
@@ -168,6 +218,52 @@ async fn test_branch_create_delete() {
 
     repo.branch_delete("feature-x", false).await.unwrap();
     assert!(!repo.branch_exists("feature-x").await.unwrap());
+}
+
+#[tokio::test]
+async fn test_branch_create_with_start_point() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    let sha = repo.head_commit_full().await.unwrap();
+    repo.branch_create("from-sha", Some(&sha)).await.unwrap();
+    assert!(repo.branch_exists("from-sha").await.unwrap());
+}
+
+#[tokio::test]
+async fn test_branch_delete_force() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    repo.branch_create("unmerged", None).await.unwrap();
+    repo.checkout("unmerged").await.unwrap();
+    std::fs::write(tmp.path().join("feat.txt"), "feat").unwrap();
+    run_git(tmp.path(), &["add", "."]);
+    run_git(tmp.path(), &["commit", "-m", "feat"]);
+    repo.checkout("main").await.unwrap();
+    // unmerged has commits not reachable from main
+    let err = repo.branch_delete("unmerged", false).await.unwrap_err();
+    assert!(matches!(err, GitError::CommandFailed { .. }));
+    repo.branch_delete("unmerged", true).await.unwrap();
+    assert!(!repo.branch_exists("unmerged").await.unwrap());
+}
+
+#[tokio::test]
+async fn test_checkout_success() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    repo.branch_create("other", None).await.unwrap();
+    repo.checkout("other").await.unwrap();
+    let branch = repo.current_branch().await.unwrap();
+    assert_eq!(branch, "other");
+    repo.checkout("main").await.unwrap();
 }
 
 #[tokio::test]
@@ -218,6 +314,17 @@ async fn test_merge_tree_conflicts() {
 }
 
 #[tokio::test]
+async fn test_merge_tree_invalid_branch() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    let err = repo.merge_tree("main", "nonexistent-xyz").await.unwrap_err();
+    assert!(matches!(err, GitError::CommandFailed { .. }));
+}
+
+#[tokio::test]
 async fn test_commit() {
     if !git_available() {
         return;
@@ -231,7 +338,45 @@ async fn test_commit() {
 }
 
 #[tokio::test]
-async fn test_stash_pop() {
+async fn test_commit_with_paths() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    std::fs::write(tmp.path().join("init.txt"), "modified").unwrap();
+    std::fs::write(tmp.path().join("b.txt"), "b").unwrap();
+    let sha = repo
+        .commit("commit init only", &[std::path::Path::new("init.txt")])
+        .await
+        .unwrap();
+    let files = repo.changed_files().await.unwrap();
+    assert!(!files.contains(&"init.txt".to_string()));
+    assert!(files.contains(&"b.txt".to_string()));
+    assert!(!sha.is_empty());
+}
+
+#[tokio::test]
+async fn test_add_and_add_all() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    std::fs::write(tmp.path().join("a.txt"), "a").unwrap();
+    std::fs::write(tmp.path().join("b.txt"), "b").unwrap();
+    repo.add(tmp.path().join("a.txt")).await.unwrap();
+    let status = repo.status().await.unwrap();
+    assert!(status.staged.contains(&"a.txt".to_string()));
+    assert!(!status.staged.contains(&"b.txt".to_string()));
+
+    repo.add_all().await.unwrap();
+    let status = repo.status().await.unwrap();
+    assert!(status.staged.contains(&"b.txt".to_string()));
+}
+
+#[tokio::test]
+async fn test_stash_and_stash_pop() {
     if !git_available() {
         return;
     }
@@ -244,6 +389,18 @@ async fn test_stash_pop() {
     repo.stash_pop().await.unwrap();
     let files = repo.changed_files().await.unwrap();
     assert!(files.iter().any(|f| f.contains("init.txt")));
+}
+
+#[tokio::test]
+async fn test_stash_without_message() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    std::fs::write(tmp.path().join("init.txt"), "stashed").unwrap();
+    repo.stash(None).await.unwrap();
+    repo.ensure_clean().await.unwrap();
 }
 
 #[tokio::test]
@@ -296,22 +453,75 @@ async fn test_fetch_and_remote_url() {
 }
 
 #[tokio::test]
-async fn test_commit_with_paths() {
+async fn test_push_without_remote() {
     if !git_available() {
         return;
     }
     let tmp = temp_repo_dir();
     let repo = Repository::open(tmp.path()).await.unwrap();
-    std::fs::write(tmp.path().join("init.txt"), "modified").unwrap();
-    std::fs::write(tmp.path().join("b.txt"), "b").unwrap();
-    let sha = repo
-        .commit("commit init only", &[std::path::Path::new("init.txt")])
-        .await
-        .unwrap();
-    let files = repo.changed_files().await.unwrap();
-    assert!(!files.contains(&"init.txt".to_string()));
-    assert!(files.contains(&"b.txt".to_string()));
-    assert!(!sha.is_empty());
+    let err = repo.push("origin", "main", false).await.unwrap_err();
+    assert!(matches!(err, GitError::CommandFailed { .. }));
+}
+
+#[tokio::test]
+async fn test_push_force_without_remote() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    let err = repo.push_force("origin", "main").await.unwrap_err();
+    assert!(matches!(err, GitError::CommandFailed { .. }));
+}
+
+#[tokio::test]
+async fn test_fetch_without_remote() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    let err = repo.fetch("origin").await.unwrap_err();
+    assert!(matches!(err, GitError::CommandFailed { .. }));
+}
+
+#[tokio::test]
+async fn test_merge_no_edit() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    repo.branch_create("feat", None).await.unwrap();
+    repo.checkout("feat").await.unwrap();
+    std::fs::write(tmp.path().join("feat.txt"), "feat").unwrap();
+    run_git(tmp.path(), &["add", "."]);
+    run_git(tmp.path(), &["commit", "-m", "feat"]);
+    repo.checkout("main").await.unwrap();
+    repo.merge("feat", true).await.unwrap();
+}
+
+#[tokio::test]
+async fn test_rebase_abort_noop() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    // Abort when no rebase is in progress -> git returns error
+    let err = repo.rebase_abort().await.unwrap_err();
+    assert!(matches!(err, GitError::CommandFailed { .. }));
+}
+
+#[tokio::test]
+async fn test_default_branch_no_remote() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    let err = repo.default_branch().await.unwrap_err();
+    assert!(matches!(err, GitError::CommandFailed { .. }));
 }
 
 #[tokio::test]

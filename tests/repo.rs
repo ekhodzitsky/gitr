@@ -1,6 +1,10 @@
 use gitr::Repository;
 use std::path::PathBuf;
 
+fn git_available() -> bool {
+    which::which("git").is_ok()
+}
+
 fn git_binary() -> PathBuf {
     std::env::var_os("GIT_BINARY")
         .map(PathBuf::from)
@@ -21,8 +25,10 @@ fn configure_git(dir: &std::path::Path) {
 }
 
 #[tokio::test]
-#[ignore = "requires git binary"]
 async fn init_and_status() {
+    if !git_available() {
+        return;
+    }
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path();
 
@@ -41,8 +47,10 @@ async fn init_and_status() {
 }
 
 #[tokio::test]
-#[ignore = "requires git binary"]
 async fn worktree_add_and_remove() {
+    if !git_available() {
+        return;
+    }
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path();
 
@@ -68,11 +76,13 @@ async fn worktree_add_and_remove() {
         .unwrap();
 
     let repo = Repository::open(dir).await.unwrap();
+    repo.branch_create("feature-x", None).await.unwrap();
     let wt_path = dir.join("wt-1");
     repo.worktree_add(&wt_path, "feature-x").await.unwrap();
 
     let wts = repo.worktree_list().await.unwrap();
-    assert!(wts.iter().any(|wt| wt.path == wt_path));
+    let canonical_wt = wt_path.canonicalize().unwrap_or(wt_path.clone());
+    assert!(wts.iter().any(|wt| wt.path == canonical_wt));
 
     repo.worktree_remove(&wt_path, false).await.unwrap();
 }

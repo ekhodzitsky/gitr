@@ -3,6 +3,7 @@ use crate::error::GitError;
 use crate::parse;
 use crate::types::{GitMergeResult, GitStatus, GitWorktree};
 use std::path::{Path, PathBuf};
+#[cfg(feature = "tracing")]
 use tracing::debug;
 
 #[cfg(test)]
@@ -231,6 +232,7 @@ impl Repository {
                 let combined = format!("{stdout}\n{stderr}");
                 let result = parse::parse_merge_tree(&combined)?;
                 if result.has_conflicts {
+                    #[cfg(feature = "tracing")]
                     debug!(
                         base,
                         branch,
@@ -269,6 +271,7 @@ impl Repository {
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         let _out = self.cmd.run(&args_ref).await?;
         let sha = self.head_commit().await?;
+        #[cfg(feature = "tracing")]
         debug!(%sha, "committed");
         Ok(sha)
     }

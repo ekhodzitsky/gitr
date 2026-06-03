@@ -11,8 +11,8 @@ _None — this file is updated as work is claimed._
 - [x] **Hermetic unit tests** — Partial: `command` tests use shell scripts (no git binary).
   Full `ScriptedRunner`/`RecordingRunner` deferred to post-0.1.
 - [x] **Parse-only unit tests** — Every parser has tests with sample output.
-- [ ] **Integration test un-ignore** — Make `tests/repo.rs` run in CI by ensuring
-  `git` is installed, or by switching to hermetic tests.
+- [x] **Integration test un-ignore** — `tests/repo.rs` now runs without `#[ignore]`;
+  skips gracefully when git is not in PATH.
 
 ### API Evolution
 

@@ -33,6 +33,12 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  typos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@v1
+
   deny:
     runs-on: ubuntu-latest
     steps:
@@ -41,6 +47,22 @@ jobs:
         with:
           command: check advisories licenses bans sources
 
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: low
+          comment-summary-in-pr: on-failure
+          allow-licenses: MIT, Apache-2.0, Unicode-3.0
+
   coverage:
     runs-on: ubuntu-latest
     steps:
@@ -48,7 +70,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-tarpaulin
       - uses: Swatinem/rust-cache@v2
-      - run: cargo tarpaulin --all-features --out xml --timeout 120 --fail-under 80
+      - run: cargo tarpaulin --all-features --out xml --timeout 120 --fail-under 85
       - uses: codecov/codecov-action@v5
         with:
           files: ./cobertura.xml
@@ -61,6 +83,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: obi1kenobi/cargo-semver-checks-action@v2
+
+  hack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-hack
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo hack check --feature-powerset --all-targets
 
   publish-dry-run:
     runs-on: ubuntu-latest

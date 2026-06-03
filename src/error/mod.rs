@@ -60,3 +60,15 @@ impl From<std::io::Error> for GitError {
         GitError::Io(e.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let git_err: GitError = io_err.into();
+        assert!(matches!(git_err, GitError::Io(ref s) if s.contains("file not found")));
+    }
+}
