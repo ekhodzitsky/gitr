@@ -5,6 +5,9 @@ use crate::types::{GitMergeResult, GitStatus, GitWorktree};
 use std::path::{Path, PathBuf};
 use tracing::debug;
 
+#[cfg(test)]
+mod tests;
+
 /// A typed handle to a git repository.
 #[derive(Debug, Clone)]
 pub struct Repository {
@@ -24,6 +27,11 @@ impl Repository {
         }
         let cmd = GitCommand::new(root.clone())?;
         Ok(Self { root, cmd })
+    }
+
+    /// Open an existing worktree directory as a repository handle.
+    pub async fn open_worktree(path: impl AsRef<Path>) -> Result<Self, GitError> {
+        Self::open(path).await
     }
 
     /// Path to the repository root.
@@ -98,7 +106,7 @@ impl Repository {
     /// Raw `git status --porcelain` output.
     pub async fn status_porcelain(&self) -> Result<String, GitError> {
         let out = self.cmd.run(&["status", "--porcelain"]).await?;
-        Ok(out.stdout)
+        Ok(out.stdout.to_string())
     }
 
     /// Parse and return structured status.
@@ -275,6 +283,12 @@ impl Repository {
         Ok(())
     }
 
+    /// Push with `--force` (not `--force-with-lease`).
+    pub async fn push_force(&self, remote: &str, branch: &str) -> Result<(), GitError> {
+        self.cmd.run(&["push", "--force", remote, branch]).await?;
+        Ok(())
+    }
+
     /// Fetch from `remote`.
     pub async fn fetch(&self, remote: &str) -> Result<(), GitError> {
         self.cmd.run(&["fetch", remote]).await?;
@@ -296,7 +310,19 @@ impl Repository {
     /// Get unstaged diff.
     pub async fn diff(&self) -> Result<String, GitError> {
         let out = self.cmd.run(&["diff"]).await?;
-        Ok(out.stdout)
+        Ok(out.stdout.to_string())
+    }
+
+    /// Get diff for specific paths.
+    pub async fn diff_files(&self, paths: &[impl AsRef<Path>]) -> Result<String, GitError> {
+        let mut args = vec!["diff", "--"];
+        for p in paths {
+            args.push(p.as_ref().to_str().ok_or_else(|| {
+                GitError::Io("path contains invalid UTF-8".to_string())
+            })?);
+        }
+        let out = self.cmd.run(&args).await?;
+        Ok(out.stdout.to_string())
     }
 
     /// Stage all changes (including untracked).

@@ -8,12 +8,9 @@ _None — this file is updated as work is claimed._
 
 ### Testing Infrastructure
 
-- [ ] **Hermetic unit tests** — Implement `ScriptedRunner`/`RecordingRunner` so tests
-  run without a real `git` binary. Use a trait-based `GitRunner` that `GitCommand`
-  implements. Record real git invocations, replay in tests.
-- [ ] **Parse-only unit tests** — Every parser (`parse_status`, `parse_worktrees`,
-  `parse_branches`, `parse_merge_tree`) must have tests with sample output from
-  real `git` invocations.
+- [x] **Hermetic unit tests** — Partial: `command` tests use shell scripts (no git binary).
+  Full `ScriptedRunner`/`RecordingRunner` deferred to post-0.1.
+- [x] **Parse-only unit tests** — Every parser has tests with sample output.
 - [ ] **Integration test un-ignore** — Make `tests/repo.rs` run in CI by ensuring
   `git` is installed, or by switching to hermetic tests.
 

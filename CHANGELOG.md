@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `command.rs` now uses real `tokio::time::timeout`, retry logic with exponential
+  backoff for network errors, and non-interactive git environment variables.
+- `parse.rs` updated to match omk logic: proper `merge-tree` conflict detection,
+  `parse_log`, `parse_remotes`, `parse_has_diff`.
+- `repo.rs` adds `diff_files`, `push_force`, `open_worktree`.
+
+### Fixed
+
+- README worktree example now uses real `Repository::open_worktree`.
+- `Repository::open` is now truly async (uses `tokio::fs::canonicalize`).
+
+### Testing
+
+- Ported 20+ unit tests from omk: status, branch, worktree, merge-tree, commit,
+  stash, diff, fetch, checkout error paths.
+- Added hermetic `command` tests: timeout, retry, is_retryable.
+- Added parse-only unit tests with sample porcelain output.
+
 ## [0.1.0] - 2026-06-02
 
 ### Added
