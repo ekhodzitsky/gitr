@@ -94,7 +94,12 @@ pub trait GitApi {
     async fn tag_list(&self) -> Result<Vec<crate::types::GitTag>, GitError>;
 
     /// Create a new tag.
-    async fn tag_create(&self, name: &str, message: Option<&str>, force: bool) -> Result<(), GitError>;
+    async fn tag_create(
+        &self,
+        name: &str,
+        message: Option<&str>,
+        force: bool,
+    ) -> Result<(), GitError>;
 
     /// Show file contents at a given revision.
     async fn show(&self, path: &str, rev: Option<&str>) -> Result<String, GitError>;
@@ -103,7 +108,11 @@ pub trait GitApi {
     async fn blame(&self, path: &str) -> Result<String, GitError>;
 
     /// Reset the index and working tree.
-    async fn reset(&self, mode: crate::types::ResetMode, target: Option<&str>) -> Result<(), GitError>;
+    async fn reset(
+        &self,
+        mode: crate::types::ResetMode,
+        target: Option<&str>,
+    ) -> Result<(), GitError>;
 
     /// List stash entries.
     async fn stash_list(&self) -> Result<Vec<crate::types::GitStash>, GitError>;

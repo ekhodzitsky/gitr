@@ -502,7 +502,14 @@ impl Repository {
 
     /// List all tags.
     pub async fn tag_list(&self) -> Result<Vec<crate::types::GitTag>, GitError> {
-        let out = self.cmd.run(&["tag", "--list", "--format=%(refname:short)|%(objectname:short)|%(subject)"]).await?;
+        let out = self
+            .cmd
+            .run(&[
+                "tag",
+                "--list",
+                "--format=%(refname:short)|%(objectname:short)|%(subject)",
+            ])
+            .await?;
         let mut tags = Vec::new();
         for line in out.stdout.lines() {
             let parts: Vec<&str> = line.splitn(3, '|').collect();
@@ -518,7 +525,12 @@ impl Repository {
     }
 
     /// Create a new tag.
-    pub async fn tag_create(&self, name: &str, message: Option<&str>, force: bool) -> Result<(), GitError> {
+    pub async fn tag_create(
+        &self,
+        name: &str,
+        message: Option<&str>,
+        force: bool,
+    ) -> Result<(), GitError> {
         let mut args: Vec<String> = vec!["tag".into()];
         if force {
             args.push("-f".into());
@@ -551,7 +563,11 @@ impl Repository {
     }
 
     /// Reset the index and working tree.
-    pub async fn reset(&self, mode: crate::types::ResetMode, target: Option<&str>) -> Result<(), GitError> {
+    pub async fn reset(
+        &self,
+        mode: crate::types::ResetMode,
+        target: Option<&str>,
+    ) -> Result<(), GitError> {
         let mode_flag = match mode {
             crate::types::ResetMode::Soft => "--soft",
             crate::types::ResetMode::Mixed => "--mixed",
@@ -567,7 +583,10 @@ impl Repository {
 
     /// List stash entries.
     pub async fn stash_list(&self) -> Result<Vec<crate::types::GitStash>, GitError> {
-        let out = self.cmd.run(&["stash", "list", "--format=%H|%gd|%s"]).await?;
+        let out = self
+            .cmd
+            .run(&["stash", "list", "--format=%H|%gd|%s"])
+            .await?;
         let mut stashes = Vec::new();
         for line in out.stdout.lines() {
             let parts: Vec<&str> = line.splitn(3, '|').collect();
@@ -702,7 +721,12 @@ impl GitApi for Repository {
         self.tag_list().await
     }
 
-    async fn tag_create(&self, name: &str, message: Option<&str>, force: bool) -> Result<(), GitError> {
+    async fn tag_create(
+        &self,
+        name: &str,
+        message: Option<&str>,
+        force: bool,
+    ) -> Result<(), GitError> {
         self.tag_create(name, message, force).await
     }
 
@@ -714,7 +738,11 @@ impl GitApi for Repository {
         self.blame(path).await
     }
 
-    async fn reset(&self, mode: crate::types::ResetMode, target: Option<&str>) -> Result<(), GitError> {
+    async fn reset(
+        &self,
+        mode: crate::types::ResetMode,
+        target: Option<&str>,
+    ) -> Result<(), GitError> {
         self.reset(mode, target).await
     }
 
