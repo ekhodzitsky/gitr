@@ -64,3 +64,39 @@ pub struct GitWorktree {
     /// Branch tracked by this worktree.
     pub branch: String,
 }
+
+/// A git tag.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct GitTag {
+    /// Tag name.
+    pub name: String,
+    /// Tagged object SHA.
+    pub sha: String,
+    /// Tag message (empty for lightweight tags).
+    pub message: String,
+}
+
+/// A single stash entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct GitStash {
+    /// Stash reference (e.g. "stash@{0}").
+    pub ref_name: String,
+    /// Commit SHA.
+    pub sha: String,
+    /// Stash message.
+    pub message: String,
+}
+
+/// Reset mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ResetMode {
+    /// Mixed reset (default).
+    Mixed,
+    /// Soft reset.
+    Soft,
+    /// Hard reset.
+    Hard,
+}

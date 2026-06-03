@@ -40,4 +40,4 @@ pub use command::ScriptedRunner;
 pub use error::GitError as Error;
 pub use parse::DiffShortstat;
 pub use repo::Repository;
-pub use types::{GitLogEntry, GitMergeResult, GitRemote, GitStatus, GitWorktree};
+pub use types::{GitLogEntry, GitMergeResult, GitRemote, GitStatus, GitStash, GitTag, GitWorktree, ResetMode};

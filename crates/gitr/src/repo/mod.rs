@@ -435,6 +435,28 @@ impl Repository {
         parse::parse_log(&out.stdout)
     }
 
+    /// Get a paginated slice of the commit log.
+    ///
+    /// Use `skip` to offset and `max_count` to limit. Useful for large
+    /// repositories where loading the entire log into memory is impractical.
+    pub async fn log_paginated(
+        &self,
+        skip: usize,
+        max_count: usize,
+    ) -> Result<Vec<crate::types::GitLogEntry>, GitError> {
+        let args_ref: Vec<String> = vec![
+            "log".into(),
+            "--format=%H|%s|%an|%at".into(),
+            "--skip".into(),
+            skip.to_string(),
+            "-n".into(),
+            max_count.to_string(),
+        ];
+        let args_str: Vec<&str> = args_ref.iter().map(|s| s.as_str()).collect();
+        let out = self.cmd.run(&args_str).await?;
+        parse::parse_log(&out.stdout)
+    }
+
     /// List configured remotes.
     pub async fn remotes(&self) -> Result<Vec<crate::types::GitRemote>, GitError> {
         let out = self.cmd.run(&["remote", "-v"]).await?;
@@ -456,6 +478,118 @@ impl Repository {
         Err(GitError::Parse(format!(
             "unexpected origin/HEAD format: {stdout}"
         )))
+    }
+
+    /// Read a git config value.
+    pub async fn config_get(&self, key: &str) -> Result<Option<String>, GitError> {
+        let out = self.cmd.run(&["config", key]).await;
+        match out {
+            Ok(o) => Ok(Some(o.stdout.trim().to_string())),
+            Err(GitError::CommandFailed { ref stderr, .. })
+                if stderr.contains("not in config") || stderr.contains("has no value") =>
+            {
+                Ok(None)
+            }
+            Err(other) => Err(other),
+        }
+    }
+
+    /// Set a git config value.
+    pub async fn config_set(&self, key: &str, value: &str) -> Result<(), GitError> {
+        self.cmd.run(&["config", key, value]).await?;
+        Ok(())
+    }
+
+    /// List all tags.
+    pub async fn tag_list(&self) -> Result<Vec<crate::types::GitTag>, GitError> {
+        let out = self.cmd.run(&["tag", "--list", "--format=%(refname:short)|%(objectname:short)|%(subject)"]).await?;
+        let mut tags = Vec::new();
+        for line in out.stdout.lines() {
+            let parts: Vec<&str> = line.splitn(3, '|').collect();
+            if parts.len() == 3 {
+                tags.push(crate::types::GitTag {
+                    name: parts[0].to_string(),
+                    sha: parts[1].to_string(),
+                    message: parts[2].to_string(),
+                });
+            }
+        }
+        Ok(tags)
+    }
+
+    /// Create a new tag.
+    pub async fn tag_create(&self, name: &str, message: Option<&str>, force: bool) -> Result<(), GitError> {
+        let mut args: Vec<String> = vec!["tag".into()];
+        if force {
+            args.push("-f".into());
+        }
+        if let Some(msg) = message {
+            args.push("-a".into());
+            args.push("-m".into());
+            args.push(msg.into());
+        }
+        args.push(name.into());
+        let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        self.cmd.run(&args_ref).await?;
+        Ok(())
+    }
+
+    /// Show file contents at a given revision.
+    pub async fn show(&self, path: &str, rev: Option<&str>) -> Result<String, GitError> {
+        let spec = match rev {
+            Some(r) => format!("{r}:{path}"),
+            None => format!("HEAD:{path}"),
+        };
+        let out = self.cmd.run(&["show", &spec]).await?;
+        Ok(out.stdout)
+    }
+
+    /// Get blame information for a file.
+    pub async fn blame(&self, path: &str) -> Result<String, GitError> {
+        let out = self.cmd.run(&["blame", "--line-porcelain", path]).await?;
+        Ok(out.stdout)
+    }
+
+    /// Reset the index and working tree.
+    pub async fn reset(&self, mode: crate::types::ResetMode, target: Option<&str>) -> Result<(), GitError> {
+        let mode_flag = match mode {
+            crate::types::ResetMode::Soft => "--soft",
+            crate::types::ResetMode::Mixed => "--mixed",
+            crate::types::ResetMode::Hard => "--hard",
+        };
+        let mut args = vec!["reset", mode_flag];
+        if let Some(t) = target {
+            args.push(t);
+        }
+        self.cmd.run(&args).await?;
+        Ok(())
+    }
+
+    /// List stash entries.
+    pub async fn stash_list(&self) -> Result<Vec<crate::types::GitStash>, GitError> {
+        let out = self.cmd.run(&["stash", "list", "--format=%H|%gd|%s"]).await?;
+        let mut stashes = Vec::new();
+        for line in out.stdout.lines() {
+            let parts: Vec<&str> = line.splitn(3, '|').collect();
+            if parts.len() == 3 {
+                stashes.push(crate::types::GitStash {
+                    sha: parts[0].to_string(),
+                    ref_name: parts[1].to_string(),
+                    message: parts[2].to_string(),
+                });
+            }
+        }
+        Ok(stashes)
+    }
+
+    /// Cherry-pick one or more commits.
+    pub async fn cherry_pick(&self, commits: &[&str]) -> Result<(), GitError> {
+        let mut args = vec!["cherry-pick"];
+        for c in commits {
+            args.push(c);
+        }
+        self.cmd.run(&args).await?;
+        Ok(())
     }
 }
 
@@ -544,7 +678,51 @@ impl GitApi for Repository {
         self.log(max_count).await
     }
 
+    async fn log_paginated(
+        &self,
+        skip: usize,
+        max_count: usize,
+    ) -> Result<Vec<crate::types::GitLogEntry>, GitError> {
+        self.log_paginated(skip, max_count).await
+    }
+
     async fn remotes(&self) -> Result<Vec<crate::types::GitRemote>, GitError> {
         self.remotes().await
+    }
+
+    async fn config_get(&self, key: &str) -> Result<Option<String>, GitError> {
+        self.config_get(key).await
+    }
+
+    async fn config_set(&self, key: &str, value: &str) -> Result<(), GitError> {
+        self.config_set(key, value).await
+    }
+
+    async fn tag_list(&self) -> Result<Vec<crate::types::GitTag>, GitError> {
+        self.tag_list().await
+    }
+
+    async fn tag_create(&self, name: &str, message: Option<&str>, force: bool) -> Result<(), GitError> {
+        self.tag_create(name, message, force).await
+    }
+
+    async fn show(&self, path: &str, rev: Option<&str>) -> Result<String, GitError> {
+        self.show(path, rev).await
+    }
+
+    async fn blame(&self, path: &str) -> Result<String, GitError> {
+        self.blame(path).await
+    }
+
+    async fn reset(&self, mode: crate::types::ResetMode, target: Option<&str>) -> Result<(), GitError> {
+        self.reset(mode, target).await
+    }
+
+    async fn stash_list(&self) -> Result<Vec<crate::types::GitStash>, GitError> {
+        self.stash_list().await
+    }
+
+    async fn cherry_pick(&self, commits: &[&str]) -> Result<(), GitError> {
+        self.cherry_pick(commits).await
     }
 }

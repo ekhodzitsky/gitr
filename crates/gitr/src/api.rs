@@ -74,6 +74,40 @@ pub trait GitApi {
         max_count: Option<usize>,
     ) -> Result<Vec<crate::types::GitLogEntry>, GitError>;
 
+    /// Get a paginated slice of the commit log.
+    async fn log_paginated(
+        &self,
+        skip: usize,
+        max_count: usize,
+    ) -> Result<Vec<crate::types::GitLogEntry>, GitError>;
+
     /// List configured remotes.
     async fn remotes(&self) -> Result<Vec<crate::types::GitRemote>, GitError>;
+
+    /// Read a git config value.
+    async fn config_get(&self, key: &str) -> Result<Option<String>, GitError>;
+
+    /// Set a git config value.
+    async fn config_set(&self, key: &str, value: &str) -> Result<(), GitError>;
+
+    /// List all tags.
+    async fn tag_list(&self) -> Result<Vec<crate::types::GitTag>, GitError>;
+
+    /// Create a new tag.
+    async fn tag_create(&self, name: &str, message: Option<&str>, force: bool) -> Result<(), GitError>;
+
+    /// Show file contents at a given revision.
+    async fn show(&self, path: &str, rev: Option<&str>) -> Result<String, GitError>;
+
+    /// Get blame information for a file.
+    async fn blame(&self, path: &str) -> Result<String, GitError>;
+
+    /// Reset the index and working tree.
+    async fn reset(&self, mode: crate::types::ResetMode, target: Option<&str>) -> Result<(), GitError>;
+
+    /// List stash entries.
+    async fn stash_list(&self) -> Result<Vec<crate::types::GitStash>, GitError>;
+
+    /// Cherry-pick one or more commits.
+    async fn cherry_pick(&self, commits: &[&str]) -> Result<(), GitError>;
 }
