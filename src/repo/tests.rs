@@ -538,6 +538,25 @@ async fn test_default_branch_no_remote() {
 }
 
 #[tokio::test]
+async fn test_agent_helpers() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+
+    // Clean repo
+    assert!(repo.is_nothing_to_commit().await.unwrap());
+    assert!(!repo.has_untracked_files().await.unwrap());
+    assert!(!repo.is_merge_conflict().await.unwrap());
+
+    // Untracked file
+    std::fs::write(tmp.path().join("new.txt"), "new").unwrap();
+    assert!(!repo.is_nothing_to_commit().await.unwrap());
+    assert!(repo.has_untracked_files().await.unwrap());
+}
+
+#[tokio::test]
 async fn test_checkout_branch_not_found() {
     if !git_available() {
         return;

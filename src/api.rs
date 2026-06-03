@@ -1,0 +1,68 @@
+use async_trait::async_trait;
+use crate::error::GitError;
+use crate::types::{GitMergeResult, GitStatus, GitWorktree};
+use std::path::Path;
+
+/// High-level async trait for git repository operations.
+///
+/// Implemented by [`Repository`](crate::Repository). Downstream consumers can
+/// use `Box<dyn GitApi>` or `Arc<dyn GitApi>` for mockability in tests.
+#[async_trait]
+pub trait GitApi {
+    /// Ensure the working tree is clean (no staged/unstaged changes).
+    async fn ensure_clean(&self) -> Result<(), GitError>;
+
+    /// Get structured status.
+    async fn status(&self) -> Result<GitStatus, GitError>;
+
+    /// Get the current branch name.
+    async fn current_branch(&self) -> Result<String, GitError>;
+
+    /// Get the short SHA of HEAD.
+    async fn head_commit(&self) -> Result<String, GitError>;
+
+    /// List changed files (modified, staged, untracked).
+    async fn changed_files(&self) -> Result<Vec<String>, GitError>;
+
+    /// Add a worktree at `path` tracking `branch`.
+    async fn worktree_add(&self, path: &Path, branch: &str) -> Result<GitWorktree, GitError>;
+
+    /// Remove a worktree at `path`.
+    async fn worktree_remove(&self, path: &Path, force: bool) -> Result<(), GitError>;
+
+    /// List all worktrees.
+    async fn worktree_list(&self) -> Result<Vec<GitWorktree>, GitError>;
+
+    /// Create a new branch.
+    async fn branch_create(&self, name: &str, start_point: Option<&str>) -> Result<(), GitError>;
+
+    /// Delete a local branch.
+    async fn branch_delete(&self, name: &str, force: bool) -> Result<(), GitError>;
+
+    /// Check whether a branch exists.
+    async fn branch_exists(&self, name: &str) -> Result<bool, GitError>;
+
+    /// Checkout a branch.
+    async fn checkout(&self, branch: &str) -> Result<(), GitError>;
+
+    /// Commit all changes with `message`.
+    async fn commit(&self, message: &str) -> Result<String, GitError>;
+
+    /// Push `branch` to `remote`.
+    async fn push(&self, remote: &str, branch: &str, force: bool) -> Result<(), GitError>;
+
+    /// Fetch from `remote`.
+    async fn fetch(&self, remote: &str) -> Result<(), GitError>;
+
+    /// Read-only merge-tree conflict detection.
+    async fn merge_tree(&self, base: &str, branch: &str) -> Result<GitMergeResult, GitError>;
+
+    /// Rebase current HEAD onto branch.
+    async fn rebase(&self, branch: &str) -> Result<(), GitError>;
+
+    /// Stash changes with an optional message.
+    async fn stash(&self, message: Option<&str>) -> Result<(), GitError>;
+
+    /// Get unstaged diff.
+    async fn diff(&self) -> Result<String, GitError>;
+}

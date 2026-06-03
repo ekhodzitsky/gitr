@@ -25,12 +25,14 @@
     missing_docs
 )]
 
+mod api;
 mod command;
 mod error;
 mod parse;
 mod repo;
 mod types;
 
+pub use api::GitApi;
 pub use command::{CommandOutput, ScriptedRunner};
 pub use error::GitError as Error;
 pub use repo::Repository;

@@ -27,7 +27,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gitr = "0.1"
+gitr = "0.2"
 ```
 
 ### Open a repository

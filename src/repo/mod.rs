@@ -1,7 +1,9 @@
+use crate::api::GitApi;
 use crate::command::GitCommand;
 use crate::error::GitError;
 use crate::parse;
 use crate::types::{GitMergeResult, GitStatus, GitWorktree};
+use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 #[cfg(feature = "tracing")]
 use tracing::debug;
@@ -104,6 +106,22 @@ impl Repository {
         Ok(files)
     }
 
+    /// Whether the repository has unresolved merge/rebase conflicts.
+    pub async fn is_merge_conflict(&self) -> Result<bool, GitError> {
+        Ok(!self.conflicted_files().await?.is_empty())
+    }
+
+    /// Whether there are no staged or unstaged changes (untracked ignored).
+    pub async fn is_nothing_to_commit(&self) -> Result<bool, GitError> {
+        let files = self.changed_files().await?;
+        Ok(files.is_empty())
+    }
+
+    /// Whether there are untracked files.
+    pub async fn has_untracked_files(&self) -> Result<bool, GitError> {
+        Ok(!self.untracked_files().await?.is_empty())
+    }
+
     /// Raw `git status --porcelain` output.
     pub async fn status_porcelain(&self) -> Result<String, GitError> {
         let out = self.cmd.run(&["status", "--porcelain"]).await?;
@@ -114,6 +132,12 @@ impl Repository {
     pub async fn status(&self) -> Result<GitStatus, GitError> {
         let out = self.cmd.run(&["status", "--porcelain"]).await?;
         parse::parse_status(&out.stdout)
+    }
+
+    /// Parse and return structured status from null-delimited porcelain.
+    pub async fn status_z(&self) -> Result<GitStatus, GitError> {
+        let out = self.cmd.run(&["status", "--porcelain", "-z"]).await?;
+        parse::parse_status_z(&out.stdout)
     }
 
     /// Add a worktree at `path` tracking `branch`.
@@ -409,5 +433,84 @@ impl Repository {
         Err(GitError::Parse(format!(
             "unexpected origin/HEAD format: {stdout}"
         )))
+    }
+}
+
+#[async_trait]
+impl GitApi for Repository {
+    async fn ensure_clean(&self) -> Result<(), GitError> {
+        self.ensure_clean().await
+    }
+
+    async fn status(&self) -> Result<GitStatus, GitError> {
+        self.status().await
+    }
+
+    async fn current_branch(&self) -> Result<String, GitError> {
+        self.current_branch().await
+    }
+
+    async fn head_commit(&self) -> Result<String, GitError> {
+        self.head_commit().await
+    }
+
+    async fn changed_files(&self) -> Result<Vec<String>, GitError> {
+        self.changed_files().await
+    }
+
+    async fn worktree_add(&self, path: &Path, branch: &str) -> Result<GitWorktree, GitError> {
+        self.worktree_add(path, branch).await
+    }
+
+    async fn worktree_remove(&self, path: &Path, force: bool) -> Result<(), GitError> {
+        self.worktree_remove(path, force).await
+    }
+
+    async fn worktree_list(&self) -> Result<Vec<GitWorktree>, GitError> {
+        self.worktree_list().await
+    }
+
+    async fn branch_create(&self, name: &str, start_point: Option<&str>) -> Result<(), GitError> {
+        self.branch_create(name, start_point).await
+    }
+
+    async fn branch_delete(&self, name: &str, force: bool) -> Result<(), GitError> {
+        self.branch_delete(name, force).await
+    }
+
+    async fn branch_exists(&self, name: &str) -> Result<bool, GitError> {
+        self.branch_exists(name).await
+    }
+
+    async fn checkout(&self, branch: &str) -> Result<(), GitError> {
+        self.checkout(branch).await
+    }
+
+    async fn commit(&self, message: &str) -> Result<String, GitError> {
+        self.commit(message, &[] as &[&Path]).await
+    }
+
+    async fn push(&self, remote: &str, branch: &str, force: bool) -> Result<(), GitError> {
+        self.push(remote, branch, force).await
+    }
+
+    async fn fetch(&self, remote: &str) -> Result<(), GitError> {
+        self.fetch(remote).await
+    }
+
+    async fn merge_tree(&self, base: &str, branch: &str) -> Result<GitMergeResult, GitError> {
+        self.merge_tree(base, branch).await
+    }
+
+    async fn rebase(&self, branch: &str) -> Result<(), GitError> {
+        self.rebase(branch).await
+    }
+
+    async fn stash(&self, message: Option<&str>) -> Result<(), GitError> {
+        self.stash(message).await
+    }
+
+    async fn diff(&self) -> Result<String, GitError> {
+        self.diff().await
     }
 }

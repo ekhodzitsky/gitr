@@ -15,29 +15,78 @@ pub struct DiffShortstat {
 
 /// Parse `git status --porcelain` output.
 pub fn parse_status(stdout: &str) -> Result<GitStatus, GitError> {
-    let mut status = GitStatus::default();
-    for line in stdout.lines() {
-        if line.len() < 4 {
-            continue;
-        }
-        let idx = line.as_bytes().first().copied().unwrap_or(b' ');
-        let wt = line.as_bytes().get(1).copied().unwrap_or(b' ');
-        let rest = &line[3..];
-        // Rename/copy lines: "XY old_path -> new_path"
-        let path = if let Some(arrow) = rest.find(" -> ") {
-            rest[arrow + 4..].to_string()
-        } else {
-            rest.to_string()
-        };
+    parse_status_impl(stdout, false)
+}
 
-        if idx == b'?' && wt == b'?' {
-            status.untracked.push(path);
-        } else if idx != b' ' {
-            status.staged.push(path);
-        } else if wt != b' ' {
-            status.unstaged.push(path);
+/// Parse `git status --porcelain -z` output (null-delimited).
+pub fn parse_status_z(stdout: &str) -> Result<GitStatus, GitError> {
+    parse_status_impl(stdout, true)
+}
+
+fn parse_status_impl(stdout: &str, nul_terminated: bool) -> Result<GitStatus, GitError> {
+    let mut status = GitStatus::default();
+
+    if nul_terminated {
+        let mut parts = stdout.split('\0');
+        while let Some(entry) = parts.next() {
+            if entry.len() < 3 {
+                continue;
+            }
+            let idx = entry.as_bytes()[0];
+            let wt = entry.as_bytes()[1];
+            let path = &entry[3..];
+
+            // Rename/copy: original path, next part is new path
+            if idx == b'R' || idx == b'C' || wt == b'R' || wt == b'C' {
+                let new_path = parts.next().unwrap_or(path).to_string();
+                if idx != b' ' {
+                    status.staged.push(new_path);
+                } else if wt != b' ' {
+                    status.unstaged.push(new_path);
+                }
+                continue;
+            }
+
+            if idx == b'?' && wt == b'?' {
+                status.untracked.push(path.to_string());
+            } else if idx == b'!' && wt == b'!' {
+                // ignored
+            } else {
+                if idx != b' ' {
+                    status.staged.push(path.to_string());
+                }
+                if wt != b' ' {
+                    status.unstaged.push(path.to_string());
+                }
+            }
+        }
+    } else {
+        for line in stdout.lines() {
+            if line.len() < 4 {
+                continue;
+            }
+            let idx = line.as_bytes().first().copied().unwrap_or(b' ');
+            let wt = line.as_bytes().get(1).copied().unwrap_or(b' ');
+            let rest = &line[3..];
+            // Rename/copy lines: "XY old_path -> new_path"
+            let path = if let Some(arrow) = rest.find(" -> ") {
+                rest[arrow + 4..].to_string()
+            } else {
+                rest.to_string()
+            };
+
+            if idx == b'?' && wt == b'?' {
+                status.untracked.push(path);
+            } else if idx == b'!' && wt == b'!' {
+                // ignored
+            } else if idx != b' ' {
+                status.staged.push(path);
+            } else if wt != b' ' {
+                status.unstaged.push(path);
+            }
         }
     }
+
     Ok(status)
 }
 
@@ -232,6 +281,29 @@ mod tests {
     fn test_parse_status_rename() {
         let input = "R  old.txt -> new.txt\n";
         let s = parse_status(input).unwrap();
+        assert_eq!(s.staged, vec!["new.txt"]);
+    }
+
+    #[test]
+    fn test_parse_status_z_basic() {
+        let input = " M file.txt\0?? untracked.txt\0";
+        let s = parse_status_z(input).unwrap();
+        assert_eq!(s.unstaged, vec!["file.txt"]);
+        assert_eq!(s.untracked, vec!["untracked.txt"]);
+    }
+
+    #[test]
+    fn test_parse_status_z_with_spaces() {
+        let input = " M path with spaces.txt\0?? another file.txt\0";
+        let s = parse_status_z(input).unwrap();
+        assert_eq!(s.unstaged, vec!["path with spaces.txt"]);
+        assert_eq!(s.untracked, vec!["another file.txt"]);
+    }
+
+    #[test]
+    fn test_parse_status_z_rename() {
+        let input = "R  old.txt\0new.txt\0";
+        let s = parse_status_z(input).unwrap();
         assert_eq!(s.staged, vec!["new.txt"]);
     }
 
