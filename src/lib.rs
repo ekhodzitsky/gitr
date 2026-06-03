@@ -1,0 +1,25 @@
+//! # gitr
+//!
+//! Async typed git CLI wrapper for agents and automation.
+//!
+//! ## Quick start
+//!
+//! ```no_run
+//! use gitr::Repository;
+//!
+//! # async fn example() -> Result<(), gitr::Error> {
+//! let repo = Repository::open(".").await?;
+//! let branch = repo.current_branch().await?;
+//! # Ok(())
+//! # }
+//! ```
+
+mod command;
+mod error;
+mod parse;
+mod repo;
+mod types;
+
+pub use error::GitError as Error;
+pub use repo::Repository;
+pub use types::{GitMergeResult, GitStatus, GitWorktree};
