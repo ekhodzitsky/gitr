@@ -26,6 +26,7 @@
 )]
 
 mod api;
+mod cache;
 mod command;
 mod error;
 mod parse;
@@ -33,6 +34,7 @@ mod repo;
 mod types;
 
 pub use api::GitApi;
+pub use cache::Cache;
 pub use command::CommandOutput;
 
 #[cfg(any(test, feature = "test-utils"))]

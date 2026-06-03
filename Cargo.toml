@@ -12,4 +12,5 @@ authors = ["Evgeny Khodzitsky"]
 
 [workspace.dependencies]
 tokio = { version = "1.44", features = ["rt-multi-thread", "macros", "process", "time"] }
+tokio-util = { version = "0.7", features = ["rt"] }
 gitr = { path = "crates/gitr" }

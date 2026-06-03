@@ -484,4 +484,28 @@ mod tests {
         assert_eq!(s.insertions, 0);
         assert_eq!(s.deletions, 1);
     }
+
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_parse_status_never_panics(s in r"[ MADRCU?!]{2} [^\n]*\n{0,5}") {
+            let _ = parse_status(&s);
+        }
+
+        #[test]
+        fn prop_parse_branches_never_panics(s in r"[a-zA-Z0-9_/-]*\n{0,10}") {
+            let _ = parse_branches(&s);
+        }
+
+        #[test]
+        fn prop_parse_worktrees_never_panics(s in r"(worktree [^\n]*\n(branch [^\n]*|detached)\n?){0,5}") {
+            let _ = parse_worktrees(&s);
+        }
+
+        #[test]
+        fn prop_parse_merge_tree_never_panics(s in r"[a-z0-9 _:\(\)/\n]{0,200}") {
+            let _ = parse_merge_tree(&s);
+        }
+    }
 }

@@ -1,4 +1,5 @@
 use crate::api::GitApi;
+use crate::cache::Cache;
 use crate::command::GitCommand;
 use crate::error::GitError;
 use crate::parse;
@@ -16,6 +17,7 @@ mod tests;
 pub struct Repository {
     root: PathBuf,
     cmd: GitCommand,
+    cache: Option<Cache>,
 }
 
 impl Repository {
@@ -29,7 +31,11 @@ impl Repository {
             return Err(GitError::NotARepo(root));
         }
         let cmd = GitCommand::new(root.clone())?;
-        Ok(Self { root, cmd })
+        Ok(Self {
+            root,
+            cmd,
+            cache: None,
+        })
     }
 
     /// Open an existing worktree directory as a repository handle.
@@ -40,12 +46,30 @@ impl Repository {
         Self::open(path).await
     }
 
+    /// Attach an in-memory cache to this repository handle.
+    ///
+    /// When caching is enabled, [`status`](Self::status) and related
+    /// read-only queries may return cached results. Callers must
+    /// invalidate the cache after mutating operations.
+    pub fn with_cache(mut self, cache: Cache) -> Self {
+        self.cache = Some(cache);
+        self
+    }
+
+    /// Invalidate the attached cache, if any.
+    pub async fn invalidate_cache(&self) {
+        if let Some(c) = &self.cache {
+            c.invalidate().await;
+        }
+    }
+
     /// Path to the repository root.
     pub fn root(&self) -> &Path {
         &self.root
     }
 
     /// Ensure the working tree is clean (no staged/unstaged changes; untracked ignored).
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn ensure_clean(&self) -> Result<(), GitError> {
         let out = self.cmd.run(&["status", "--porcelain"]).await?;
         let status = parse::parse_status(&out.stdout)?;
@@ -58,6 +82,7 @@ impl Repository {
     }
 
     /// Get the current branch name.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn current_branch(&self) -> Result<String, GitError> {
         let out = self.cmd.run(&["rev-parse", "--abbrev-ref", "HEAD"]).await?;
         let branch = out.stdout.trim().to_string();
@@ -68,6 +93,7 @@ impl Repository {
     }
 
     /// Get the short SHA of HEAD.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn head_commit(&self) -> Result<String, GitError> {
         let out = self.cmd.run(&["rev-parse", "--short", "HEAD"]).await?;
         Ok(out.stdout.trim().to_string())
@@ -133,8 +159,17 @@ impl Repository {
 
     /// Parse and return structured status.
     pub async fn status(&self) -> Result<GitStatus, GitError> {
+        if let Some(c) = &self.cache {
+            if let Some(cached) = c.get_status().await {
+                return Ok(cached);
+            }
+        }
         let out = self.cmd.run(&["status", "--porcelain"]).await?;
-        parse::parse_status(&out.stdout)
+        let status = parse::parse_status(&out.stdout)?;
+        if let Some(c) = &self.cache {
+            c.set_status(status.clone()).await;
+        }
+        Ok(status)
     }
 
     /// Parse and return structured status from null-delimited porcelain.
@@ -161,6 +196,7 @@ impl Repository {
             }
         }
         out?;
+        self.invalidate_cache().await;
         Ok(GitWorktree {
             path: path.to_path_buf(),
             branch: branch.to_string(),
@@ -181,6 +217,7 @@ impl Repository {
         }
         args.push(&path_str);
         self.cmd.run(&args).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -207,6 +244,7 @@ impl Repository {
             }
         }
         out?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -220,6 +258,7 @@ impl Repository {
             }
         }
         out?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -242,6 +281,7 @@ impl Repository {
             }
         }
         out?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -297,6 +337,7 @@ impl Repository {
         }
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         let _out = self.cmd.run(&args_ref).await?;
+        self.invalidate_cache().await;
         let sha = self.head_commit().await?;
         #[cfg(feature = "tracing")]
         debug!(%sha, "committed");
@@ -310,12 +351,14 @@ impl Repository {
             args.push("--force-with-lease");
         }
         self.cmd.run(&args).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
     /// Push with `--force` (not `--force-with-lease`).
     pub async fn push_force(&self, remote: &str, branch: &str) -> Result<(), GitError> {
         self.cmd.run(&["push", "--force", remote, branch]).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -338,6 +381,7 @@ impl Repository {
     }
 
     /// Get unstaged diff.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn diff(&self) -> Result<String, GitError> {
         let out = self.cmd.run(&["diff"]).await?;
         Ok(out.stdout.to_string())
@@ -363,6 +407,7 @@ impl Repository {
     /// Stage all changes (including untracked).
     pub async fn add_all(&self) -> Result<(), GitError> {
         self.cmd.run(&["add", "-A"]).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -370,6 +415,7 @@ impl Repository {
     pub async fn add(&self, path: impl AsRef<Path>) -> Result<(), GitError> {
         let path_str = path.as_ref().to_string_lossy();
         self.cmd.run(&["add", &path_str]).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -381,12 +427,14 @@ impl Repository {
             args.push(msg);
         }
         self.cmd.run(&args).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
     /// Pop the latest stash.
     pub async fn stash_pop(&self) -> Result<(), GitError> {
         self.cmd.run(&["stash", "pop"]).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -397,18 +445,21 @@ impl Repository {
             args.push("--no-edit");
         }
         self.cmd.run(&args).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
     /// Rebase current HEAD onto branch.
     pub async fn rebase(&self, branch: &str) -> Result<(), GitError> {
         self.cmd.run(&["rebase", branch]).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
     /// Abort an in-progress rebase.
     pub async fn rebase_abort(&self) -> Result<(), GitError> {
         self.cmd.run(&["rebase", "--abort"]).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
@@ -417,10 +468,12 @@ impl Repository {
         self.cmd
             .run_with_env(&["rebase", "--continue"], &[("GIT_EDITOR", "true")])
             .await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
     /// Get the commit log.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn log(
         &self,
         max_count: Option<usize>,
@@ -481,6 +534,7 @@ impl Repository {
     }
 
     /// Read a git config value.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn config_get(&self, key: &str) -> Result<Option<String>, GitError> {
         let out = self.cmd.run(&["config", key]).await;
         match out {
@@ -501,6 +555,7 @@ impl Repository {
     }
 
     /// List all tags.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn tag_list(&self) -> Result<Vec<crate::types::GitTag>, GitError> {
         let out = self
             .cmd
@@ -543,10 +598,12 @@ impl Repository {
         args.push(name.into());
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         self.cmd.run(&args_ref).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
     /// Show file contents at a given revision.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn show(&self, path: &str, rev: Option<&str>) -> Result<String, GitError> {
         let spec = match rev {
             Some(r) => format!("{r}:{path}"),
@@ -557,6 +614,7 @@ impl Repository {
     }
 
     /// Get blame information for a file.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn blame(&self, path: &str) -> Result<String, GitError> {
         let out = self.cmd.run(&["blame", "--line-porcelain", path]).await?;
         Ok(out.stdout)
@@ -578,10 +636,12 @@ impl Repository {
             args.push(t);
         }
         self.cmd.run(&args).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 
     /// List stash entries.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn stash_list(&self) -> Result<Vec<crate::types::GitStash>, GitError> {
         let out = self
             .cmd
@@ -608,6 +668,7 @@ impl Repository {
             args.push(c);
         }
         self.cmd.run(&args).await?;
+        self.invalidate_cache().await;
         Ok(())
     }
 }

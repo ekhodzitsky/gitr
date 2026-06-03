@@ -5,6 +5,7 @@ use std::sync::LazyLock;
 use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::sleep;
+use tokio_util::sync::CancellationToken;
 
 static GIT_BIN_PATH: LazyLock<Result<PathBuf, GitError>> =
     LazyLock::new(|| which::which("git").map_err(|_| GitError::GitNotFound));
@@ -44,6 +45,7 @@ pub struct GitCommand {
     git_bin: PathBuf,
     timeout: Duration,
     max_retries: u32,
+    cancel: Option<CancellationToken>,
 }
 
 impl GitCommand {
@@ -56,6 +58,7 @@ impl GitCommand {
             git_bin,
             timeout: GIT_TIMEOUT,
             max_retries: MAX_RETRIES,
+            cancel: None,
         })
     }
 
@@ -66,6 +69,7 @@ impl GitCommand {
             git_bin,
             timeout: GIT_TIMEOUT,
             max_retries: MAX_RETRIES,
+            cancel: None,
         }
     }
 
@@ -78,6 +82,16 @@ impl GitCommand {
     #[cfg(test)]
     pub(crate) fn with_max_retries(mut self, max_retries: u32) -> Self {
         self.max_retries = max_retries;
+        self
+    }
+
+    /// Attach a cancellation token to this command runner.
+    ///
+    /// When the token is cancelled, any in-flight git command is killed
+    /// and [`GitError::Io`] is returned.
+    #[allow(dead_code)]
+    pub fn with_cancel(mut self, cancel: CancellationToken) -> Self {
+        self.cancel = Some(cancel);
         self
     }
 
@@ -100,6 +114,12 @@ impl GitCommand {
         let mut attempt = 0;
 
         loop {
+            if let Some(c) = &self.cancel {
+                if c.is_cancelled() {
+                    return Err(GitError::Io("cancelled".to_string()));
+                }
+            }
+
             let mut cmd = Command::new(&self.git_bin);
             cmd.args(args)
                 .current_dir(&self.cwd)
@@ -113,7 +133,21 @@ impl GitCommand {
                 cmd.env(k, v);
             }
 
-            let result = tokio::time::timeout(self.timeout, cmd.output()).await;
+            let result = if let Some(c) = &self.cancel {
+                let output_fut = cmd.output();
+                tokio::pin!(output_fut);
+                tokio::select! {
+                    biased;
+                    _ = c.cancelled() => {
+                        return Err(GitError::Io("cancelled".to_string()));
+                    }
+                    r = tokio::time::timeout(self.timeout, output_fut) => r,
+                }
+            } else {
+                let output_fut = cmd.output();
+                tokio::pin!(output_fut);
+                tokio::time::timeout(self.timeout, output_fut).await
+            };
 
             match result {
                 Ok(Ok(output)) => {
@@ -144,7 +178,7 @@ impl GitCommand {
                     });
                 }
                 Ok(Err(e)) => {
-                    return Err(GitError::Io(format!("failed to spawn git: {e}")));
+                    return Err(GitError::Io(format!("failed to run git: {e}")));
                 }
                 Err(_) => {
                     return Err(GitError::Timeout(self.timeout, command_str));
@@ -260,5 +294,22 @@ mod tests {
         } else {
             panic!("expected CommandFailed");
         }
+    }
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn test_cancellation() {
+        let tmp = tempfile::tempdir().unwrap();
+        let script = tmp.path().join("slow-git");
+        write_script(&script, "#!/bin/sh\nsleep 10\n");
+        let cancel = CancellationToken::new();
+        let cmd = GitCommand::new_with_git_bin(tmp.path().to_path_buf(), script)
+            .with_cancel(cancel.clone());
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            cancel.cancel();
+        });
+        let err = cmd.run(&["status"]).await.unwrap_err();
+        assert!(matches!(err, GitError::Io(ref s) if s == "cancelled"));
     }
 }
