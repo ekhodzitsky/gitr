@@ -1,8 +1,8 @@
 use gitr::Repository;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt};
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
@@ -43,14 +43,11 @@ async fn main() {
         }
     };
 
-    let stdin = io::stdin();
+    let stdin = io::BufReader::new(io::stdin());
     let mut stdout = io::stdout();
+    let mut lines = stdin.lines();
 
-    for line in stdin.lock().lines() {
-        let line = match line {
-            Ok(l) => l,
-            Err(_) => break,
-        };
+    while let Ok(Some(line)) = lines.next_line().await {
         if line.trim().is_empty() {
             continue;
         }
@@ -70,7 +67,8 @@ async fn main() {
                             data: None,
                         }),
                     },
-                );
+                )
+                .await;
                 continue;
             }
         };
@@ -95,14 +93,29 @@ async fn main() {
             },
         };
 
-        write_response(&mut stdout, resp);
+        write_response(&mut stdout, resp).await;
     }
 }
 
-fn write_response(stdout: &mut io::Stdout, resp: JsonRpcResponse) {
-    let json = serde_json::to_string(&resp).unwrap();
-    writeln!(stdout, "{json}").unwrap();
-    stdout.flush().unwrap();
+async fn write_response(stdout: &mut io::Stdout, resp: JsonRpcResponse) {
+    let json = match serde_json::to_string(&resp) {
+        Ok(j) => j,
+        Err(e) => {
+            eprintln!("failed to serialize response: {e}");
+            return;
+        }
+    };
+    if let Err(e) = stdout.write_all(json.as_bytes()).await {
+        eprintln!("failed to write response: {e}");
+        return;
+    }
+    if let Err(e) = stdout.write_all(b"\n").await {
+        eprintln!("failed to write newline: {e}");
+        return;
+    }
+    if let Err(e) = stdout.flush().await {
+        eprintln!("failed to flush stdout: {e}");
+    }
 }
 
 async fn handle_request(repo: &Repository, method: &str, params: Value) -> Result<Value, String> {
