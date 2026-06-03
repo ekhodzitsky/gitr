@@ -1,0 +1,67 @@
+# gitr — Current Tasks & Known Gaps
+
+## In Progress
+
+_None — this file is updated as work is claimed._
+
+## Next Up
+
+### Testing Infrastructure
+
+- [ ] **Hermetic unit tests** — Implement `ScriptedRunner`/`RecordingRunner` so tests
+  run without a real `git` binary. Use a trait-based `GitRunner` that `GitCommand`
+  implements. Record real git invocations, replay in tests.
+- [ ] **Parse-only unit tests** — Every parser (`parse_status`, `parse_worktrees`,
+  `parse_branches`, `parse_merge_tree`) must have tests with sample output from
+  real `git` invocations.
+- [ ] **Integration test un-ignore** — Make `tests/repo.rs` run in CI by ensuring
+  `git` is installed, or by switching to hermetic tests.
+
+### API Evolution
+
+- [ ] **`GitApi` trait** — Extract `GitApi` trait from `Repository` for mockability
+  in downstream consumers. `Repository` becomes the default impl.
+- [ ] **Typed porcelain parsers expansion**
+  - `diff --shortstat` → structured diff stats
+  - `log --format` with `\x1f` delimiters → `Vec<GitLogEntry>`
+  - `status -z` → null-delimited porcelain for paths with spaces
+- [ ] **Agent helpers** — Convenience methods for common agent workflows:
+  - `is_merge_conflict() -> bool`
+  - `is_nothing_to_commit() -> bool`
+  - `is_transient_fetch_error() -> bool`
+  - `has_untracked_files() -> bool`
+
+### Missing Features (vs. omk needs)
+
+- [ ] **`merge_tree` enhancement** — Parse `tree_oid` from merge-tree output correctly.
+- [ ] **Conflict classification** — Distinguish content vs. rename vs. delete conflicts.
+- [ ] **Transient fetch detection** — Parse stderr for network-related fetch failures.
+- [ ] **Worktree validation** — `open_worktree(path)` that validates the path is a
+  registered worktree before returning a `Repository` handle.
+
+### Documentation
+
+- [x] **Module-level README.md** — Every `src/X/` module needs README with:
+  - Purpose
+  - Public API (types, traits, functions)
+  - Consumers
+  - Invariants
+- [x] **SPEC.md** — Formal API contract and design decisions.
+- [ ] **ROADMAP.md** — Staging for 0.2.0, 0.3.0, 1.0.0.
+
+### Code Quality
+
+- [ ] **Remove `#[allow(dead_code)]`** — `GitLogEntry`, `GitRemote`, `stderr`/`exit_code`
+  in `CommandOutput` should be used or removed.
+- [ ] **`run_with_timeout` actually uses timeout** — Currently `_dur` is unused;
+  `tokio::time::timeout` must be applied.
+- [x] **Clippy lint policy in `src/lib.rs`** — Add `#![warn(...)]` for Tier 1 lints.
+
+## Done
+
+- [x] Initial crate scaffolding
+- [x] CI pipeline (matrix, deny, coverage, semver)
+- [x] Core types (`GitStatus`, `GitMergeResult`, `GitWorktree`)
+- [x] Core parsers (`status`, `worktrees`, `branches`, `merge-tree`)
+- [x] `Repository` API surface (open, branch, worktree, commit, push, fetch, rebase, merge, stash)
+- [x] `CHANGELOG.md` with per-PR discipline

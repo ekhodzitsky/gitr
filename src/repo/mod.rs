@@ -15,9 +15,8 @@ pub struct Repository {
 impl Repository {
     /// Open a repository, validating that `.git` exists and git is in PATH.
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, GitError> {
-        let root = path
-            .as_ref()
-            .canonicalize()
+        let root = tokio::fs::canonicalize(path.as_ref())
+            .await
             .unwrap_or_else(|_| path.as_ref().to_path_buf());
         let dot_git = root.join(".git");
         if !dot_git.exists() {

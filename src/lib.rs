@@ -14,6 +14,16 @@
 //! # }
 //! ```
 
+#![warn(
+    clippy::await_holding_lock,
+    clippy::dbg_macro,
+    clippy::wildcard_imports,
+    clippy::unused_async,
+    clippy::missing_panics_doc,
+    clippy::cast_sign_loss,
+    clippy::manual_strip
+)]
+
 mod command;
 mod error;
 mod parse;
