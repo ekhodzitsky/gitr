@@ -5,15 +5,22 @@ use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::sleep;
 
+mod scripted;
+
+pub use scripted::ScriptedRunner;
+
 const GIT_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_RETRIES: u32 = 3;
 
 /// Output of a finished git command.
 #[derive(Debug, Clone)]
 pub struct CommandOutput {
+    /// Standard output from the command.
     pub stdout: String,
+    /// Standard error from the command.
     #[allow(dead_code)]
     pub stderr: String,
+    /// Process exit code.
     #[allow(dead_code)]
     pub exit_code: i32,
 }

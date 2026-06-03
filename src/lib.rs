@@ -21,7 +21,8 @@
     clippy::unused_async,
     clippy::missing_panics_doc,
     clippy::cast_sign_loss,
-    clippy::manual_strip
+    clippy::manual_strip,
+    missing_docs
 )]
 
 mod command;
@@ -30,6 +31,8 @@ mod parse;
 mod repo;
 mod types;
 
+pub use command::{CommandOutput, ScriptedRunner};
 pub use error::GitError as Error;
 pub use repo::Repository;
 pub use types::{GitMergeResult, GitStatus, GitWorktree};
+pub use parse::DiffShortstat;

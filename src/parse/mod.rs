@@ -2,6 +2,17 @@ use crate::error::GitError;
 use crate::types::{GitLogEntry, GitMergeResult, GitRemote, GitStatus, GitWorktree};
 use std::path::PathBuf;
 
+/// Statistics from `git diff --shortstat`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DiffShortstat {
+    /// Number of files changed.
+    pub files_changed: u64,
+    /// Number of insertions.
+    pub insertions: u64,
+    /// Number of deletions.
+    pub deletions: u64,
+}
+
 /// Parse `git status --porcelain` output.
 pub fn parse_status(stdout: &str) -> Result<GitStatus, GitError> {
     let mut status = GitStatus::default();
@@ -156,6 +167,46 @@ pub fn parse_has_diff(stdout: &str) -> bool {
     !stdout.trim().is_empty()
 }
 
+/// Parse `git diff --shortstat` output.
+pub fn parse_diff_shortstat(stdout: &str) -> Result<DiffShortstat, GitError> {
+    let mut stat = DiffShortstat::default();
+    let line = stdout.trim();
+    if line.is_empty() {
+        return Ok(stat);
+    }
+
+    for part in line.split(',') {
+        let part = part.trim();
+        if let Some(n) = part.strip_suffix(" files changed") {
+            stat.files_changed = n
+                .parse()
+                .map_err(|e| GitError::Parse(format!("invalid files changed: {e}")))?;
+        } else if let Some(n) = part.strip_suffix(" file changed") {
+            stat.files_changed = n
+                .parse()
+                .map_err(|e| GitError::Parse(format!("invalid file changed: {e}")))?;
+        } else if let Some(n) = part.strip_suffix(" insertions(+)") {
+            stat.insertions = n
+                .parse()
+                .map_err(|e| GitError::Parse(format!("invalid insertions: {e}")))?;
+        } else if let Some(n) = part.strip_suffix(" insertion(+)") {
+            stat.insertions = n
+                .parse()
+                .map_err(|e| GitError::Parse(format!("invalid insertion: {e}")))?;
+        } else if let Some(n) = part.strip_suffix(" deletions(-)") {
+            stat.deletions = n
+                .parse()
+                .map_err(|e| GitError::Parse(format!("invalid deletions: {e}")))?;
+        } else if let Some(n) = part.strip_suffix(" deletion(-)") {
+            stat.deletions = n
+                .parse()
+                .map_err(|e| GitError::Parse(format!("invalid deletion: {e}")))?;
+        }
+    }
+
+    Ok(stat)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -262,5 +313,38 @@ mod tests {
         assert!(parse_has_diff("1\t2\tfile.rs\n"));
         assert!(!parse_has_diff("   \n"));
         assert!(!parse_has_diff(""));
+    }
+
+    #[test]
+    fn test_parse_diff_shortstat_empty() {
+        let s = parse_diff_shortstat("").unwrap();
+        assert_eq!(s, DiffShortstat::default());
+    }
+
+    #[test]
+    fn test_parse_diff_shortstat_full() {
+        let input = " 2 files changed, 10 insertions(+), 5 deletions(-)";
+        let s = parse_diff_shortstat(input).unwrap();
+        assert_eq!(s.files_changed, 2);
+        assert_eq!(s.insertions, 10);
+        assert_eq!(s.deletions, 5);
+    }
+
+    #[test]
+    fn test_parse_diff_shortstat_single_file() {
+        let input = " 1 file changed, 3 insertions(+)";
+        let s = parse_diff_shortstat(input).unwrap();
+        assert_eq!(s.files_changed, 1);
+        assert_eq!(s.insertions, 3);
+        assert_eq!(s.deletions, 0);
+    }
+
+    #[test]
+    fn test_parse_diff_shortstat_only_deletions() {
+        let input = " 1 file changed, 1 deletion(-)";
+        let s = parse_diff_shortstat(input).unwrap();
+        assert_eq!(s.files_changed, 1);
+        assert_eq!(s.insertions, 0);
+        assert_eq!(s.deletions, 1);
     }
 }

@@ -16,9 +16,13 @@ pub enum GitError {
     /// A git command failed with a non-zero exit code.
     #[error("command failed: {command} — exit {exit_code}, stderr: {stderr}")]
     CommandFailed {
+        /// The full command string that was executed.
         command: String,
+        /// The process exit code.
         exit_code: i32,
+        /// Standard error captured from the command.
         stderr: String,
+        /// Standard output captured from the command.
         stdout: String,
     },
 

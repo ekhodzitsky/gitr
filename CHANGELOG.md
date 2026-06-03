@@ -29,12 +29,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added parse-only unit tests with sample porcelain output.
 - Coverage: 89.1% (335/376 lines).
 
+### Added
+
+- `ScriptedRunner` — hermetic test runner that replays scripted responses.
+- `Repository::diff_shortstat` and `parse_diff_shortstat` for structured diff stats.
+- Full rustdoc coverage; `#![warn(missing_docs)]` enforced.
+
 ### CI
 
 - Added `typos` job.
 - Added `dependency-review` job for PR gating.
 - Added `cargo-hack` job for feature powerset testing.
-- Coverage threshold raised to 85%.
+- Coverage threshold raised to 85% (actual: 89.7%).
 
 ## [0.1.0] - 2026-06-02
 

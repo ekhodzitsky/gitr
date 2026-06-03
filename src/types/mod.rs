@@ -3,8 +3,11 @@ use std::path::PathBuf;
 /// Status of a git working tree, parsed from porcelain output.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GitStatus {
+    /// Files with staged changes.
     pub staged: Vec<String>,
+    /// Files with unstaged changes.
     pub unstaged: Vec<String>,
+    /// Untracked files.
     pub untracked: Vec<String>,
 }
 
@@ -12,10 +15,15 @@ pub struct GitStatus {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct GitLogEntry {
+    /// Full commit SHA.
     pub sha: String,
+    /// Short (7-character) commit SHA.
     pub short_sha: String,
+    /// Commit message.
     pub message: String,
+    /// Author name.
     pub author: String,
+    /// Commit timestamp (Unix epoch seconds as string).
     pub timestamp: String,
 }
 
@@ -23,21 +31,28 @@ pub struct GitLogEntry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct GitRemote {
+    /// Remote name (e.g. "origin").
     pub name: String,
+    /// Remote URL.
     pub url: String,
 }
 
 /// Result of a read-only merge-tree operation.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GitMergeResult {
+    /// Whether any conflicts were detected.
     pub has_conflicts: bool,
+    /// Files with conflicts (empty if `has_conflicts` is false).
     pub conflict_files: Vec<String>,
+    /// The resulting tree OID (if available).
     pub tree_oid: Option<String>,
 }
 
 /// A git worktree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitWorktree {
+    /// Absolute path to the worktree directory.
     pub path: PathBuf,
+    /// Branch tracked by this worktree.
     pub branch: String,
 }

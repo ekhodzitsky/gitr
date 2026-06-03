@@ -416,6 +416,19 @@ async fn test_diff() {
 }
 
 #[tokio::test]
+async fn test_diff_shortstat() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    std::fs::write(tmp.path().join("init.txt"), "hello diff").unwrap();
+    let stat = repo.diff_shortstat().await.unwrap();
+    assert_eq!(stat.files_changed, 1);
+    assert!(stat.insertions > 0 || stat.deletions > 0);
+}
+
+#[tokio::test]
 async fn test_diff_files() {
     if !git_available() {
         return;

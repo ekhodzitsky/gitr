@@ -316,6 +316,12 @@ impl Repository {
         Ok(out.stdout.to_string())
     }
 
+    /// Get diff statistics via `--shortstat`.
+    pub async fn diff_shortstat(&self) -> Result<crate::parse::DiffShortstat, GitError> {
+        let out = self.cmd.run(&["diff", "--shortstat"]).await?;
+        crate::parse::parse_diff_shortstat(&out.stdout)
+    }
+
     /// Get diff for specific paths.
     pub async fn diff_files(&self, paths: &[impl AsRef<Path>]) -> Result<String, GitError> {
         let mut args = vec!["diff", "--"];

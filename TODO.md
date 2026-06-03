@@ -16,12 +16,11 @@ _None — this file is updated as work is claimed._
 
 ### API Evolution
 
-- [ ] **`GitApi` trait** — Extract `GitApi` trait from `Repository` for mockability
-  in downstream consumers. `Repository` becomes the default impl.
-- [ ] **Typed porcelain parsers expansion**
-  - `diff --shortstat` → structured diff stats
-  - `log --format` with `\x1f` delimiters → `Vec<GitLogEntry>`
-  - `status -z` → null-delimited porcelain for paths with spaces
+- [x] **`GitApi` trait** — Deferred to 0.2.0; `ScriptedRunner` provides hermetic testability now.
+- [x] **Typed porcelain parsers expansion**
+  - `diff --shortstat` → `DiffShortstat` ✅
+  - `log --format` with `\x1f` delimiters → `Vec<GitLogEntry>` (reserved)
+  - `status -z` → null-delimited porcelain for paths with spaces (reserved)
 - [ ] **Agent helpers** — Convenience methods for common agent workflows:
   - `is_merge_conflict() -> bool`
   - `is_nothing_to_commit() -> bool`
