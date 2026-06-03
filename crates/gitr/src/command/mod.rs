@@ -5,6 +5,9 @@ use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::sleep;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 #[cfg(any(test, feature = "test-utils"))]
 mod scripted;
 
@@ -20,6 +23,7 @@ const MAX_RETRIES: u32 = 3;
 /// them, but they are not read within this crate.
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CommandOutput {
     /// Standard output from the command.
     pub stdout: String,

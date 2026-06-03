@@ -2,8 +2,12 @@ use crate::error::GitError;
 use crate::types::{GitLogEntry, GitMergeResult, GitRemote, GitStatus, GitWorktree};
 use std::path::PathBuf;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Statistics from `git diff --shortstat`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct DiffShortstat {
     /// Number of files changed.
     pub files_changed: u64,

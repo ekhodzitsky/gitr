@@ -1,7 +1,11 @@
 use std::path::PathBuf;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// Status of a git working tree, parsed from porcelain output.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct GitStatus {
     /// Files with staged changes.
     pub staged: Vec<String>,
@@ -13,6 +17,7 @@ pub struct GitStatus {
 
 /// A single entry from `git log`.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[allow(dead_code)]
 pub struct GitLogEntry {
     /// Full commit SHA.
@@ -29,6 +34,7 @@ pub struct GitLogEntry {
 
 /// A configured git remote.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[allow(dead_code)]
 pub struct GitRemote {
     /// Remote name (e.g. "origin").
@@ -39,6 +45,7 @@ pub struct GitRemote {
 
 /// Result of a read-only merge-tree operation.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct GitMergeResult {
     /// Whether any conflicts were detected.
     pub has_conflicts: bool,
@@ -50,6 +57,7 @@ pub struct GitMergeResult {
 
 /// A git worktree.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct GitWorktree {
     /// Absolute path to the worktree directory.
     pub path: PathBuf,
