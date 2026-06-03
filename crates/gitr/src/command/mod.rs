@@ -1,9 +1,13 @@
 use crate::error::GitError;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::sleep;
+
+static GIT_BIN_PATH: LazyLock<Result<PathBuf, GitError>> =
+    LazyLock::new(|| which::which("git").map_err(|_| GitError::GitNotFound));
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -46,7 +50,7 @@ impl GitCommand {
     /// Create a new command runner for the given working directory.
     pub fn new(cwd: impl AsRef<Path>) -> Result<Self, GitError> {
         let cwd = cwd.as_ref().to_path_buf();
-        let git_bin = which::which("git").map_err(|_| GitError::GitNotFound)?;
+        let git_bin = GIT_BIN_PATH.clone()?;
         Ok(Self {
             cwd,
             git_bin,
