@@ -45,8 +45,10 @@ pub trait GitApi {
     /// Checkout a branch.
     async fn checkout(&self, branch: &str) -> Result<(), GitError>;
 
-    /// Commit all changes with `message`.
-    async fn commit(&self, message: &str) -> Result<String, GitError>;
+    /// Commit changes with `message`.
+    ///
+    /// If `paths` is empty, commits all changes (`-a`).
+    async fn commit(&self, message: &str, paths: &[&std::path::Path]) -> Result<String, GitError>;
 
     /// Push `branch` to `remote`.
     async fn push(&self, remote: &str, branch: &str, force: bool) -> Result<(), GitError>;

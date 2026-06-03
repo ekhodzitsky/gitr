@@ -33,6 +33,9 @@ impl Repository {
     }
 
     /// Open an existing worktree directory as a repository handle.
+    ///
+    /// This is currently an alias for [`Repository::open`](Self::open).
+    /// It does not verify that the directory is actually a git worktree.
     pub async fn open_worktree(path: impl AsRef<Path>) -> Result<Self, GitError> {
         Self::open(path).await
     }
@@ -347,21 +350,13 @@ impl Repository {
     }
 
     /// Get diff for specific paths.
-    ///
-    /// # Limitations
-    ///
-    /// Paths must be valid UTF-8. Non-UTF-8 paths will return
-    /// [`GitError::Io`](crate::Error::Io).
     pub async fn diff_files(&self, paths: &[impl AsRef<Path>]) -> Result<String, GitError> {
-        let mut args = vec!["diff", "--"];
+        let mut args: Vec<String> = vec!["diff".into(), "--".into()];
         for p in paths {
-            args.push(
-                p.as_ref()
-                    .to_str()
-                    .ok_or_else(|| GitError::Io("path contains invalid UTF-8".to_string()))?,
-            );
+            args.push(p.as_ref().to_string_lossy().into_owned());
         }
-        let out = self.cmd.run(&args).await?;
+        let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        let out = self.cmd.run(&args_ref).await?;
         Ok(out.stdout.to_string())
     }
 
@@ -514,8 +509,8 @@ impl GitApi for Repository {
         self.checkout(branch).await
     }
 
-    async fn commit(&self, message: &str) -> Result<String, GitError> {
-        self.commit(message, &[] as &[&Path]).await
+    async fn commit(&self, message: &str, paths: &[&Path]) -> Result<String, GitError> {
+        self.commit(message, paths).await
     }
 
     async fn push(&self, remote: &str, branch: &str, force: bool) -> Result<(), GitError> {

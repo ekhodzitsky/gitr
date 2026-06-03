@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Removed unused `serde` dependency.
+- `GitApi::commit` now accepts `paths` to match `Repository::commit`.
+- `diff_files` no longer rejects non-UTF-8 paths (uses `to_string_lossy`).
+
+### Documentation
+
+- Clarified that `open_worktree` is an alias for `open`.
+
 ## [0.3.0] - 2026-06-03
 
 ### Fixed
