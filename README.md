@@ -27,7 +27,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gitr = "0.2"
+gitr = "0.3"
 ```
 
 ### Open a repository
@@ -136,6 +136,7 @@ async fn main() -> Result<(), gitr::Error> {
 | Feature | Default | Description |
 |---|---|---|
 | `tracing` | ✅ | Emit `tracing` spans for command execution. |
+| `test-utils` | ❌ | Expose `ScriptedRunner` for downstream hermetic testing. |
 
 ## Testing
 

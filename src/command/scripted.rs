@@ -4,8 +4,10 @@ use std::collections::HashMap;
 
 /// A hermetic git runner for tests that replays scripted responses.
 ///
+/// Only available when the `test-utils` feature is enabled or when running tests.
+///
 /// Register expected commands with [`ScriptedRunner::script`], then use the
-/// runner in place of [`GitCommand`](super::GitCommand) in tests.
+/// runner in place of `GitCommand` in tests.
 ///
 /// # Example
 ///

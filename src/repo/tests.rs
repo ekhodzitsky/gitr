@@ -320,7 +320,10 @@ async fn test_merge_tree_invalid_branch() {
     }
     let tmp = temp_repo_dir();
     let repo = Repository::open(tmp.path()).await.unwrap();
-    let err = repo.merge_tree("main", "nonexistent-xyz").await.unwrap_err();
+    let err = repo
+        .merge_tree("main", "nonexistent-xyz")
+        .await
+        .unwrap_err();
     assert!(matches!(err, GitError::CommandFailed { .. }));
 }
 
@@ -333,7 +336,10 @@ async fn test_commit() {
     let repo = Repository::open(tmp.path()).await.unwrap();
     let old_sha = repo.head_commit().await.unwrap();
     std::fs::write(tmp.path().join("init.txt"), "new data").unwrap();
-    let new_sha = repo.commit("test commit", &[] as &[&std::path::Path]).await.unwrap();
+    let new_sha = repo
+        .commit("test commit", &[] as &[&std::path::Path])
+        .await
+        .unwrap();
     assert_ne!(old_sha, new_sha);
 }
 
@@ -437,7 +443,10 @@ async fn test_diff_files() {
     let repo = Repository::open(tmp.path()).await.unwrap();
     std::fs::write(tmp.path().join("init.txt"), "a").unwrap();
     std::fs::write(tmp.path().join("other.txt"), "b").unwrap();
-    let diff = repo.diff_files(&[tmp.path().join("init.txt")]).await.unwrap();
+    let diff = repo
+        .diff_files(&[tmp.path().join("init.txt")])
+        .await
+        .unwrap();
     assert!(diff.contains("init.txt"));
     assert!(!diff.contains("other.txt"));
 }
@@ -565,4 +574,49 @@ async fn test_checkout_branch_not_found() {
     let repo = Repository::open(tmp.path()).await.unwrap();
     let err = repo.checkout("nonexistent-branch-12345").await.unwrap_err();
     assert!(matches!(err, GitError::BranchNotFound(_)));
+}
+
+#[tokio::test]
+async fn test_log() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    std::fs::write(tmp.path().join("second.txt"), "second").unwrap();
+    run_git(tmp.path(), &["add", "."]);
+    run_git(tmp.path(), &["commit", "-m", "second commit"]);
+
+    let log = repo.log(None).await.unwrap();
+    assert_eq!(log.len(), 2);
+    assert_eq!(log[0].message, "second commit");
+    assert_eq!(log[1].message, "init");
+
+    let limited = repo.log(Some(1)).await.unwrap();
+    assert_eq!(limited.len(), 1);
+    assert_eq!(limited[0].message, "second commit");
+}
+
+#[tokio::test]
+async fn test_remotes() {
+    if !git_available() {
+        return;
+    }
+    let tmp = temp_repo_dir();
+    let repo = Repository::open(tmp.path()).await.unwrap();
+    run_git(
+        tmp.path(),
+        &[
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/test/repo.git",
+        ],
+    );
+
+    let remotes = repo.remotes().await.unwrap();
+    assert_eq!(remotes.len(), 2); // fetch + push
+    assert!(remotes
+        .iter()
+        .any(|r| r.name == "origin" && r.url == "https://github.com/test/repo.git"));
 }

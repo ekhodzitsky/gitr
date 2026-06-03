@@ -202,6 +202,27 @@ pub fn parse_merge_tree(stdout: &str) -> Result<GitMergeResult, GitError> {
             if let Some(rest) = line.split("Merge conflict in ").nth(1) {
                 result.conflict_files.push(rest.to_string());
             }
+            // Handle other git conflict types:
+            // CONFLICT (rename/delete): ...
+            // CONFLICT (modify/delete): ...
+            // CONFLICT (delete/modify): ...
+            // CONFLICT (rename/rename): ...
+            // CONFLICT (directory/file): ...
+            if let Some(rest) = line.split("CONFLICT (rename/delete): ").nth(1) {
+                result.conflict_files.push(rest.to_string());
+            }
+            if let Some(rest) = line.split("CONFLICT (modify/delete): ").nth(1) {
+                result.conflict_files.push(rest.to_string());
+            }
+            if let Some(rest) = line.split("CONFLICT (delete/modify): ").nth(1) {
+                result.conflict_files.push(rest.to_string());
+            }
+            if let Some(rest) = line.split("CONFLICT (rename/rename): ").nth(1) {
+                result.conflict_files.push(rest.to_string());
+            }
+            if let Some(rest) = line.split("CONFLICT (directory/file): ").nth(1) {
+                result.conflict_files.push(rest.to_string());
+            }
         }
     }
     // Deduplicate
@@ -378,6 +399,46 @@ mod tests {
         let m = parse_merge_tree(input).unwrap();
         assert!(m.has_conflicts);
         assert_eq!(m.conflict_files, vec!["src/main.rs"]);
+    }
+
+    #[test]
+    fn test_parse_merge_tree_rename_delete() {
+        let input = "CONFLICT (rename/delete): old.txt\n";
+        let m = parse_merge_tree(input).unwrap();
+        assert!(m.has_conflicts);
+        assert_eq!(m.conflict_files, vec!["old.txt"]);
+    }
+
+    #[test]
+    fn test_parse_merge_tree_modify_delete() {
+        let input = "CONFLICT (modify/delete): modified.txt\n";
+        let m = parse_merge_tree(input).unwrap();
+        assert!(m.has_conflicts);
+        assert_eq!(m.conflict_files, vec!["modified.txt"]);
+    }
+
+    #[test]
+    fn test_parse_merge_tree_delete_modify() {
+        let input = "CONFLICT (delete/modify): deleted.txt\n";
+        let m = parse_merge_tree(input).unwrap();
+        assert!(m.has_conflicts);
+        assert_eq!(m.conflict_files, vec!["deleted.txt"]);
+    }
+
+    #[test]
+    fn test_parse_merge_tree_rename_rename() {
+        let input = "CONFLICT (rename/rename): renamed.txt\n";
+        let m = parse_merge_tree(input).unwrap();
+        assert!(m.has_conflicts);
+        assert_eq!(m.conflict_files, vec!["renamed.txt"]);
+    }
+
+    #[test]
+    fn test_parse_merge_tree_directory_file() {
+        let input = "CONFLICT (directory/file): dirfile.txt\n";
+        let m = parse_merge_tree(input).unwrap();
+        assert!(m.has_conflicts);
+        assert_eq!(m.conflict_files, vec!["dirfile.txt"]);
     }
 
     #[test]

@@ -33,8 +33,11 @@ mod repo;
 mod types;
 
 pub use api::GitApi;
-pub use command::{CommandOutput, ScriptedRunner};
+pub use command::CommandOutput;
+
+#[cfg(any(test, feature = "test-utils"))]
+pub use command::ScriptedRunner;
 pub use error::GitError as Error;
-pub use repo::Repository;
-pub use types::{GitMergeResult, GitStatus, GitWorktree};
 pub use parse::DiffShortstat;
+pub use repo::Repository;
+pub use types::{GitLogEntry, GitMergeResult, GitRemote, GitStatus, GitWorktree};

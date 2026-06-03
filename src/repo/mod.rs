@@ -23,7 +23,7 @@ impl Repository {
     pub async fn open(path: impl AsRef<Path>) -> Result<Self, GitError> {
         let root = tokio::fs::canonicalize(path.as_ref())
             .await
-            .unwrap_or_else(|_| path.as_ref().to_path_buf());
+            .map_err(|e| GitError::Io(format!("failed to canonicalize path: {e}")))?;
         let dot_git = root.join(".git");
         if !dot_git.exists() {
             return Err(GitError::NotARepo(root));
@@ -347,12 +347,19 @@ impl Repository {
     }
 
     /// Get diff for specific paths.
+    ///
+    /// # Limitations
+    ///
+    /// Paths must be valid UTF-8. Non-UTF-8 paths will return
+    /// [`GitError::Io`](crate::Error::Io).
     pub async fn diff_files(&self, paths: &[impl AsRef<Path>]) -> Result<String, GitError> {
         let mut args = vec!["diff", "--"];
         for p in paths {
-            args.push(p.as_ref().to_str().ok_or_else(|| {
-                GitError::Io("path contains invalid UTF-8".to_string())
-            })?);
+            args.push(
+                p.as_ref()
+                    .to_str()
+                    .ok_or_else(|| GitError::Io("path contains invalid UTF-8".to_string()))?,
+            );
         }
         let out = self.cmd.run(&args).await?;
         Ok(out.stdout.to_string())
@@ -416,6 +423,27 @@ impl Repository {
             .run_with_env(&["rebase", "--continue"], &[("GIT_EDITOR", "true")])
             .await?;
         Ok(())
+    }
+
+    /// Get the commit log.
+    pub async fn log(
+        &self,
+        max_count: Option<usize>,
+    ) -> Result<Vec<crate::types::GitLogEntry>, GitError> {
+        let mut args: Vec<String> = vec!["log".into(), "--format=%H|%s|%an|%at".into()];
+        if let Some(n) = max_count {
+            args.push("-n".into());
+            args.push(n.to_string());
+        }
+        let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        let out = self.cmd.run(&args_ref).await?;
+        parse::parse_log(&out.stdout)
+    }
+
+    /// List configured remotes.
+    pub async fn remotes(&self) -> Result<Vec<crate::types::GitRemote>, GitError> {
+        let out = self.cmd.run(&["remote", "-v"]).await?;
+        parse::parse_remotes(&out.stdout)
     }
 
     /// Get the default branch name from remote.
@@ -512,5 +540,16 @@ impl GitApi for Repository {
 
     async fn diff(&self) -> Result<String, GitError> {
         self.diff().await
+    }
+
+    async fn log(
+        &self,
+        max_count: Option<usize>,
+    ) -> Result<Vec<crate::types::GitLogEntry>, GitError> {
+        self.log(max_count).await
+    }
+
+    async fn remotes(&self) -> Result<Vec<crate::types::GitRemote>, GitError> {
+        self.remotes().await
     }
 }

@@ -7,56 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-06-03
+## [0.3.0] - 2026-06-03
+
+### Fixed
+
+- `Repository::open` now returns `GitError::Io` when path canonicalization fails instead of silently falling back to the non-canonicalized path.
+- `parse_merge_tree` now handles additional git conflict types: `rename/delete`, `modify/delete`, `delete/modify`, `rename/rename`, and `directory/file`.
+- Removed redundant `"fatal: unable to access"` check in `is_retryable` (already covered by `"unable to access"`).
 
 ### Added
 
-- **`GitApi` trait** — high-level async trait for all repository operations.
-  `Repository` implements `GitApi`; downstream can use `Box<dyn GitApi>` for
-  mockability.
-- **Agent helpers** — `is_merge_conflict`, `is_nothing_to_commit`,
-  `has_untracked_files`, `GitError::is_retryable()`.
-- **`ScriptedRunner`** — hermetic test runner that replays scripted responses.
-- **`parse_diff_shortstat`** and `Repository::diff_shortstat` for structured diff stats.
-- **`parse_status_z`** and `Repository::status_z` for null-delimited porcelain.
-- Full rustdoc coverage; `#![warn(missing_docs)]` enforced.
+- `Repository::log()` and `Repository::remotes()` methods.
+- `GitApi::log()` and `GitApi::remotes()` trait methods.
+- `GitLogEntry` and `GitRemote` are now re-exported from the crate root.
+- `test-utils` feature gate for `ScriptedRunner`.
+- `CHANGELOG.md`.
+
+### Changed
+
+- `ScriptedRunner` is no longer available in the public API unless the `test-utils` feature is enabled.
+- `#[allow(dead_code)]` on `CommandOutput` fields moved to struct-level with explanatory comment.
+
+### Documentation
+
+- Documented `diff_files` non-UTF-8 path limitation in rustdoc.
+
+## [0.2.0] - 2026-05-27
+
+### Added
+
+- `GitApi` async trait for downstream mockability.
+- `ScriptedRunner` hermetic test runner.
+- Agent helpers: `is_merge_conflict()`, `is_nothing_to_commit()`, `has_untracked_files()`.
+- `parse_status_z` for null-delimited porcelain (paths with spaces).
+- `parse_diff_shortstat` with structured `DiffShortstat`.
+- Full rustdoc coverage for all public types and methods.
 - `CONTRIBUTING.md` and `SECURITY.md`.
 
 ### Changed
 
-- `command.rs` now uses real `tokio::time::timeout`, retry logic with exponential
-  backoff for network errors, and non-interactive git environment variables.
-- `parse.rs` updated to match omk logic: proper `merge-tree` conflict detection,
-  `parse_log`, `parse_remotes`, `parse_has_diff`.
-- `repo.rs` adds `diff_files`, `push_force`, `open_worktree`, `status_z`.
-- `tracing` feature is now optional; `repo.rs` compiles without it.
+- Ported retry logic, `tokio::time::timeout`, non-interactive env, and backoff from `omk` git layer.
+- `tracing` debug calls wrapped with `#[cfg(feature = "tracing")]` for `cargo-hack` compatibility.
 
-### Fixed
-
-- README worktree example now uses real `Repository::open_worktree`.
-- `Repository::open` is now truly async (uses `tokio::fs::canonicalize`).
-
-### Testing
-
-- 66 tests (62 unit + 2 integration + 2 doc-tests).
-- Hermetic `command` tests: timeout, retry, is_retryable, output fields.
-- Parse-only unit tests with sample porcelain output.
-- Coverage: 89.7% (381/425 lines).
-
-### CI
-
-- Added `typos`, `dependency-review`, `cargo-hack` jobs.
-- Coverage threshold raised to 85% (actual: 89.7%).
-
-## [0.1.0] - 2026-06-02
+## [0.1.0] - 2026-05-20
 
 ### Added
 
-- Initial release with async typed git CLI wrapper.
-- `Repository::open`, `current_branch`, `head_commit`, `ensure_clean`.
-- Worktree operations: `worktree_add`, `worktree_remove`, `worktree_list`.
-- Branch operations: `branch_create`, `branch_delete`, `branch_exists`, `checkout`.
-- Commit, push, fetch, stash, merge, rebase operations.
-- Read-only merge-tree conflict detection (`merge_tree`).
-- Structured error enum (`GitError`) with typed variants.
-- Porcelain parsers for `status`, `worktree list`, `branch`, `merge-tree`.
+- Initial release: async typed git CLI wrapper.
+- `Repository`, `GitCommand`, porcelain parsers, typed errors.

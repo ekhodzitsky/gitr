@@ -5,23 +5,27 @@ use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::sleep;
 
+#[cfg(any(test, feature = "test-utils"))]
 mod scripted;
 
+#[cfg(any(test, feature = "test-utils"))]
 pub use scripted::ScriptedRunner;
 
 const GIT_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_RETRIES: u32 = 3;
 
 /// Output of a finished git command.
+///
+/// `stderr` and `exit_code` are public so downstream consumers can inspect
+/// them, but they are not read within this crate.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct CommandOutput {
     /// Standard output from the command.
     pub stdout: String,
     /// Standard error from the command.
-    #[allow(dead_code)]
     pub stderr: String,
     /// Process exit code.
-    #[allow(dead_code)]
     pub exit_code: i32,
 }
 
@@ -147,7 +151,6 @@ fn is_retryable(stderr: &str) -> bool {
     needle.contains("unable to access")
         || needle.contains("timeout")
         || needle.contains("early eof")
-        || needle.contains("fatal: unable to access")
 }
 
 #[cfg(test)]
@@ -183,6 +186,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
     async fn test_command_timeout() {
         let tmp = tempfile::tempdir().unwrap();
         let script = tmp.path().join("slow-git");
@@ -194,6 +198,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
     async fn test_retry_on_network_error() {
         let tmp = tempfile::tempdir().unwrap();
         let script = tmp.path().join("flaky-git");
@@ -223,10 +228,14 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
     async fn test_command_output_fields() {
         let tmp = tempfile::tempdir().unwrap();
         let script = tmp.path().join("git");
-        write_script(&script, "#!/bin/sh\necho stdout\necho stderr >&2\nexit 42\n");
+        write_script(
+            &script,
+            "#!/bin/sh\necho stdout\necho stderr >&2\nexit 42\n",
+        );
         let cmd = GitCommand::new_with_git_bin(tmp.path().to_path_buf(), script);
         let out = cmd.run(&["status"]).await.unwrap_err();
         if let GitError::CommandFailed {

@@ -1,6 +1,6 @@
-use async_trait::async_trait;
 use crate::error::GitError;
 use crate::types::{GitMergeResult, GitStatus, GitWorktree};
+use async_trait::async_trait;
 use std::path::Path;
 
 /// High-level async trait for git repository operations.
@@ -65,4 +65,13 @@ pub trait GitApi {
 
     /// Get unstaged diff.
     async fn diff(&self) -> Result<String, GitError>;
+
+    /// Get the commit log.
+    async fn log(
+        &self,
+        max_count: Option<usize>,
+    ) -> Result<Vec<crate::types::GitLogEntry>, GitError>;
+
+    /// List configured remotes.
+    async fn remotes(&self) -> Result<Vec<crate::types::GitRemote>, GitError>;
 }

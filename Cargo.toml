@@ -1,6 +1,6 @@
 [package]
 name = "gitr"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Evgeny Khodzitsky"]
 description = "Async typed git CLI wrapper for agents and automation."
@@ -17,6 +17,7 @@ exclude = [
 [features]
 default = ["tracing"]
 tracing = ["dep:tracing"]
+test-utils = []
 
 [dependencies]
 tokio = { version = "1.44", features = ["fs", "io-util", "macros", "process", "rt", "sync", "time"] }
