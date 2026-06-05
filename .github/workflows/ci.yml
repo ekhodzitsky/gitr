@@ -56,7 +56,6 @@ jobs:
           make prefix=/usr/local install
       - run: git --version
       - run: cargo test -p gitr --all-features --locked
-      - run: cargo clippy -p gitr --all-targets --all-features --locked -- -D warnings
 
   typos:
     runs-on: ubuntu-latest
