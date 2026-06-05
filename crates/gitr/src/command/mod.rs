@@ -471,6 +471,7 @@ fn is_retryable(stderr: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::io::Write;
 
     #[test]
