@@ -488,6 +488,7 @@ mod tests {
         assert!(!is_retryable("error: pathspec 'foo' did not match"));
     }
 
+    #[cfg(unix)]
     fn write_script(path: &std::path::Path, content: &str) {
         let mut f = std::fs::File::create(path).unwrap();
         f.write_all(content.as_bytes()).unwrap();
