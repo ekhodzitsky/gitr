@@ -2855,6 +2855,9 @@ fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+// async on unix because it uses tokio::fs::metadata; sync on windows
+// where the answer is always true
+#[allow(clippy::unused_async)]
 async fn is_executable(path: &std::path::Path) -> bool {
     #[cfg(unix)]
     {
