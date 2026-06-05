@@ -27,11 +27,6 @@ fn mcp_request(method: &str, params: &str) -> serde_json::Value {
 
     let output = child.wait_with_output().expect("failed to read stdout");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    if stdout.lines().next().is_none() {
-        eprintln!("gitr-mcp exit code: {:?}", output.status.code());
-        eprintln!("gitr-mcp stderr: {stderr}");
-    }
     let line = stdout.lines().next().expect("no output from mcp");
     serde_json::from_str(line).expect("invalid json")
 }
