@@ -505,11 +505,11 @@ mod tests {
     async fn test_command_timeout() {
         let tmp = tempfile::tempdir().unwrap();
         let script = tmp.path().join("slow-git");
-        write_script(&script, "#!/bin/sh\nsleep 2\n");
+        write_script(&script, "#!/bin/sh\nwhile true; do sleep 1; done\n");
         let cmd = GitCommand::new_with_git_bin(tmp.path().to_path_buf(), script)
             .with_timeout(Duration::from_millis(100));
         let err = cmd.run(&["status"]).await.unwrap_err();
-        assert!(matches!(err, GitError::Timeout(_, _)));
+        assert!(matches!(err, GitError::Timeout(_, _)), "expected Timeout, got {:?}", err);
     }
 
     #[tokio::test]
@@ -664,18 +664,18 @@ mod tests {
         let script = tmp.path().join("git");
         write_script(
             &script,
-            "#!/bin/sh\nfor i in $(seq 1 100); do echo 'line' >&2; done\necho done\n",
+            "#!/bin/sh\nfor i in $(seq 1 100); do echo 'line' >&2; sleep 0.05; done\necho done\n",
         );
         let cancel = CancellationToken::new();
         let cmd = GitCommand::new_with_git_bin(tmp.path().to_path_buf(), script)
             .with_progress(|_line: String| {})
             .with_cancel(cancel.clone());
         tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
             cancel.cancel();
         });
         let err = cmd.run(&["fetch", "origin"]).await.unwrap_err();
-        assert!(matches!(err, GitError::Io(ref s) if s == "cancelled"));
+        assert!(matches!(err, GitError::Io(ref s) if s == "cancelled"), "expected cancelled, got {:?}", err);
     }
 
     #[tokio::test]
