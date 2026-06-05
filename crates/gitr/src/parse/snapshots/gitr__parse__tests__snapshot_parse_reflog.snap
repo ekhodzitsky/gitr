@@ -1,0 +1,22 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: entries
+---
+[
+    ReflogEntry {
+        commit: "abc123",
+        author: "Alice",
+        author_mail: "alice@example.com",
+        timestamp: "1700000000",
+        subject: "commit: init",
+        designator: "HEAD@{0}",
+    },
+    ReflogEntry {
+        commit: "def456",
+        author: "Bob",
+        author_mail: "bob@example.com",
+        timestamp: "1700000001",
+        subject: "commit: second",
+        designator: "HEAD@{1}",
+    },
+]

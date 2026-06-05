@@ -1,0 +1,16 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: s
+---
+GitStatus {
+    staged: [
+        "src/lib.rs",
+    ],
+    unstaged: [
+        "src/main.rs",
+        "old.rs",
+    ],
+    untracked: [
+        "new.txt",
+    ],
+}

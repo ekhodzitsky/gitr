@@ -1,0 +1,19 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: files
+---
+[
+    FileDiff {
+        old_path: Some(
+            "old.txt",
+        ),
+        new_path: Some(
+            "new.txt",
+        ),
+        is_binary: false,
+        mode_changed: false,
+        old_mode: None,
+        new_mode: None,
+        hunks: [],
+    },
+]

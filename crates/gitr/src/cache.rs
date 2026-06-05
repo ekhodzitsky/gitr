@@ -33,3 +33,57 @@ impl Cache {
         *self.status.write().await = None;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_cache_new_empty() {
+        let cache = Cache::new();
+        assert!(cache.get_status().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cache_set_and_get() {
+        let cache = Cache::new();
+        let status = GitStatus {
+            staged: vec!["a.txt".to_string()],
+            unstaged: vec![],
+            untracked: vec![],
+        };
+        cache.set_status(status.clone()).await;
+        let got = cache.get_status().await.unwrap();
+        assert_eq!(got.staged, status.staged);
+        assert!(got.unstaged.is_empty());
+        assert!(got.untracked.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_cache_invalidate() {
+        let cache = Cache::new();
+        let status = GitStatus {
+            staged: vec!["a.txt".to_string()],
+            unstaged: vec![],
+            untracked: vec![],
+        };
+        cache.set_status(status).await;
+        cache.invalidate().await;
+        assert!(cache.get_status().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cache_clone_shares_state() {
+        let cache = Cache::new();
+        let status = GitStatus {
+            staged: vec!["b.txt".to_string()],
+            unstaged: vec![],
+            untracked: vec![],
+        };
+        cache.set_status(status.clone()).await;
+        let cache2 = cache.clone();
+        assert_eq!(cache2.get_status().await.unwrap().staged, status.staged);
+        cache2.invalidate().await;
+        assert!(cache.get_status().await.is_none());
+    }
+}

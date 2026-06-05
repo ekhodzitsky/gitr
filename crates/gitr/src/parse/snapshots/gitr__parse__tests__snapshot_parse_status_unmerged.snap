@@ -1,0 +1,13 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: s
+---
+GitStatus {
+    staged: [
+        "conflict.rs",
+    ],
+    unstaged: [
+        "conflict.rs",
+    ],
+    untracked: [],
+}

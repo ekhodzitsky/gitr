@@ -51,7 +51,9 @@ impl Repository {
     pub async fn default_branch(&self) -> Result<String, GitError>;
 
     // Commit & Push
-    pub async fn commit(&self, message: &str, paths: &[impl AsRef<Path>]) -> Result<String, GitError>;
+    pub async fn commit(&self, message: &str, paths: &[impl AsRef<Path>], no_verify: bool) -> Result<String, GitError>;
+    pub async fn commit_signed(&self, paths: &[&Path], message: &str, gpg_key: Option<&str>, no_verify: bool) -> Result<(), GitError>;
+    pub async fn verify_commit(&self, sha: &str) -> Result<GitVerification, GitError>;
     pub async fn push(&self, remote: &str, branch: &str, force: bool) -> Result<(), GitError>;
     pub async fn fetch(&self, remote: &str) -> Result<(), GitError>;
     pub async fn remote_url(&self, remote: &str) -> Result<Option<String>, GitError>;
@@ -74,8 +76,46 @@ impl Repository {
 
     // Diff
     pub async fn diff(&self) -> Result<String, GitError>;
+    pub async fn diff_cached(&self) -> Result<String, GitError>;
     pub async fn add(&self, path: impl AsRef<Path>) -> Result<(), GitError>;
     pub async fn add_all(&self) -> Result<(), GitError>;
+
+    // Config
+    pub async fn config_get(&self, key: &str) -> Result<Option<String>, GitError>;
+    pub async fn config_set(&self, key: &str, value: &str) -> Result<(), GitError>;
+
+    // Tag
+    pub async fn tag_list(&self) -> Result<Vec<GitTag>, GitError>;
+    pub async fn tag_create(&self, name: &str, message: Option<&str>, force: bool) -> Result<(), GitError>;
+
+    // Submodule
+    pub async fn submodule_list(&self) -> Result<Vec<GitSubmodule>, GitError>;
+    pub async fn submodule_add(&self, url: &str, path: impl AsRef<Path>) -> Result<(), GitError>;
+    pub async fn submodule_update(&self, init: bool, recursive: bool) -> Result<(), GitError>;
+    pub async fn submodule_deinit(&self, path: impl AsRef<Path>, force: bool) -> Result<(), GitError>;
+    pub async fn submodule_sync(&self) -> Result<(), GitError>;
+
+    // Query
+    pub async fn show(&self, path: &str, rev: Option<&str>) -> Result<String, GitError>;
+    pub async fn blame(&self, path: &str) -> Result<String, GitError>;
+    pub async fn grep(&self, pattern: &str) -> Result<Vec<GitGrepResult>, GitError>;
+    pub async fn ls_files(&self, deleted: bool, others: bool, exclude_standard: bool) -> Result<Vec<String>, GitError>;
+    pub async fn log(&self, max_count: Option<usize>) -> Result<Vec<GitLogEntry>, GitError>;
+    pub async fn log_paginated(&self, skip: usize, max_count: usize) -> Result<Vec<GitLogEntry>, GitError>;
+    pub async fn describe(&self, tags: bool, long: bool) -> Result<String, GitError>;
+    pub async fn clean(&self, force: bool, directories: bool, dry_run: bool) -> Result<Vec<String>, GitError>;
+
+    // Reset & cherry-pick
+    pub async fn reset(&self, mode: ResetMode, target: Option<&str>) -> Result<(), GitError>;
+    pub async fn cherry_pick(&self, commits: &[&str]) -> Result<(), GitError>;
+    pub async fn stash_list(&self) -> Result<Vec<GitStash>, GitError>;
+
+    // Constructors & helpers
+    pub async fn init(path: impl AsRef<Path>) -> Result<Self, GitError>;
+    pub async fn clone(url: &str, path: impl AsRef<Path>) -> Result<Self, GitError>;
+    pub fn with_cache(self, cache: Cache) -> Self;
+    pub fn with_cancel(self, cancel: CancellationToken) -> Self;
+    pub fn with_timeout(self, timeout: Duration) -> Self;
 }
 ```
 
@@ -116,6 +156,234 @@ pub struct GitWorktree {
     pub path: PathBuf,
     pub branch: String,
 }
+
+pub struct GitSubmodule {
+    pub sha: String,
+    pub path: String,
+    pub describe: Option<String>,
+    pub dirty: bool,
+    pub uninitialized: bool,
+}
+
+pub struct GitVerification {
+    pub valid: bool,
+    pub signer: Option<String>,
+    pub fingerprint: Option<String>,
+    pub status: String,
+}
+
+pub struct GitGrepResult {
+    pub path: String,
+    pub line: u32,
+    pub text: String,
+}
+
+pub struct GitLogEntry {
+    pub sha: String,
+    pub short_sha: String,
+    pub message: String,
+    pub author: String,
+    pub timestamp: String,
+}
+
+pub struct GitTag {
+    pub name: String,
+    pub sha: String,
+    pub message: String,
+}
+
+pub struct GitStash {
+    pub ref_name: String,
+    pub sha: String,
+    pub message: String,
+}
+
+pub enum ResetMode {
+    Soft,
+    Mixed,
+    Hard,
+}
+
+pub struct DiffShortstat {
+    pub files_changed: usize,
+    pub insertions: usize,
+    pub deletions: usize,
+}
+
+pub enum DiffLineKind {
+    Context,
+    Deletion,
+    Insertion,
+    NoNewline,
+}
+
+pub struct DiffLine {
+    pub kind: DiffLineKind,
+    pub content: String,
+}
+
+pub struct DiffHunk {
+    pub old_start: usize,
+    pub old_lines: usize,
+    pub new_start: usize,
+    pub new_lines: usize,
+    pub section: String,
+    pub lines: Vec<DiffLine>,
+}
+
+pub struct FileDiff {
+    pub old_path: Option<String>,
+    pub new_path: Option<String>,
+    pub is_binary: bool,
+    pub mode_changed: bool,
+    pub old_mode: Option<String>,
+    pub new_mode: Option<String>,
+    pub hunks: Vec<DiffHunk>,
+}
+
+pub struct BlameLine {
+    pub commit: String,
+    pub author: String,
+    pub author_mail: String,
+    pub author_time: String,
+    pub line_no: usize,
+    pub content: String,
+}
+
+pub struct Patch {
+    pub commit: Option<String>,
+    pub subject: Option<String>,
+    pub from: Option<String>,
+    pub date: Option<String>,
+    pub diff: Vec<FileDiff>,
+}
+
+pub struct ApplyReport {
+    pub files_changed: Vec<String>,
+}
+
+pub struct ReflogEntry {
+    pub commit: String,
+    pub author: String,
+    pub author_mail: String,
+    pub timestamp: String,
+    pub subject: String,
+    pub designator: String,
+}
+
+pub struct Hook {
+    pub name: String,
+    pub path: PathBuf,
+    pub active: bool,
+}
+
+pub struct HookOutput {
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: i32,
+}
+
+pub struct BisectResult {
+    pub found: Option<String>,
+    pub remaining: usize,
+    pub log: Vec<String>,
+}
+
+pub struct BisectState {
+    pub current: Option<String>,
+}
+
+pub struct GitNote {
+    pub object: String,
+    pub commit: String,
+}
+
+pub struct GitAttr {
+    pub path: String,
+    pub attr: String,
+    pub value: String,
+}
+
+pub struct GitVersion {
+    pub major: u32,
+    pub minor: u32,
+    pub patch: u32,
+}
+
+pub struct PushOptions<'a> {
+    pub remote: &'a str,
+    pub branch: &'a str,
+    pub force: bool,
+    pub force_with_lease: bool,
+    pub set_upstream: bool,
+}
+
+pub struct CommitOptions<'a> {
+    pub message: &'a str,
+    pub paths: &'a [&'a Path],
+    pub no_verify: bool,
+    pub amend: bool,
+    pub signoff: bool,
+}
+
+pub struct RebaseOptions<'a> {
+    pub branch: &'a str,
+    pub interactive: bool,
+    pub autosquash: bool,
+    pub onto: Option<&'a str>,
+}
+
+pub struct MergeOptions<'a> {
+    pub branch: &'a str,
+    pub no_edit: bool,
+    pub no_ff: bool,
+    pub squash: bool,
+}
+
+pub struct FetchOptions<'a> {
+    pub remote: &'a str,
+    pub prune: bool,
+    pub tags: bool,
+    pub depth: Option<usize>,
+}
+
+pub struct CherryPickOptions<'a> {
+    pub commits: &'a [&'a str],
+    pub no_commit: bool,
+}
+
+pub struct TreeEntry {
+    pub mode: String,
+    pub path: String,
+    pub oid: String,
+}
+
+pub struct IndexEntry {
+    pub path: String,
+    pub oid: String,
+    pub mode: u32,
+}
+
+pub struct ObjectContent {
+    pub oid: String,
+    pub kind: String,
+    pub size: usize,
+    pub data: Vec<u8>,
+}
+
+pub struct GitCommit {
+    pub tree: String,
+    pub parents: Vec<String>,
+    pub author: String,
+    pub committer: String,
+    pub message: String,
+}
+
+pub struct GitLfsFile {
+    pub oid: String,
+    pub path: String,
+    pub size: Option<u64>,
+}
 ```
 
 ## Git CLI Compatibility Matrix
@@ -126,12 +394,17 @@ pub struct GitWorktree {
 | Worktree list | `worktree list --porcelain` | `--porcelain` | `parse_worktrees` |
 | Branch list | `branch --format=%(refname:short)` | `--format` | `parse_branches` |
 | Merge-tree | `merge-tree <base> <branch>` | N/A | `parse_merge_tree` |
+| Diff | `diff` (unified format) | N/A | `parse_diff` |
 
 ## Feature Flags
 
 | Feature | Default | Description |
 |---|---|---|
 | `tracing` | ✅ | Emit `tracing` spans for command execution. |
+| `serde` | ❌ | Derive `Serialize`/`Deserialize` on public types. |
+| `stream` | ❌ | Provide `log_stream()`, `grep_stream()`, `blame_stream()`, `ls_files_stream()` returning `impl Stream`. |
+| `metrics` | ❌ | Emit `metrics` counters and histograms for command execution. |
+| `test-utils` | ❌ | Internal helpers for unit tests (no public API). |
 
 ## MSRV
 
@@ -139,7 +412,5 @@ Rust **1.80**.
 
 ## Future Directions
 
-- `GitApi` trait for mockability
 - `ScriptedRunner`/`RecordingRunner` for hermetic tests
-- Additional porcelain parsers (`diff --shortstat`, `log --format`)
 - Agent-specific convenience methods

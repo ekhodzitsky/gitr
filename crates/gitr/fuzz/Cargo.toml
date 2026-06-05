@@ -1,0 +1,32 @@
+[package]
+name = "gitr-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+gitr = { path = ".." }
+
+[workspace]
+
+[[bin]]
+name = "parse_status"
+path = "fuzz_targets/parse_status.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_log"
+path = "fuzz_targets/parse_log.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_diff"
+path = "fuzz_targets/parse_diff.rs"
+test = false
+doc = false

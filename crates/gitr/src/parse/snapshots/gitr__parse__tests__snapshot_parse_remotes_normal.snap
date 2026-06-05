@@ -1,0 +1,11 @@
+---
+source: crates/gitr/src/parse/mod.rs
+assertion_line: 1661
+expression: r
+---
+[
+    GitRemote {
+        name: "origin",
+        url: "https://github.com/foo/bar.git",
+    },
+]

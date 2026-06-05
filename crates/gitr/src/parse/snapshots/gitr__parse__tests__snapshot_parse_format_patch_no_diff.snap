@@ -1,0 +1,21 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: patches
+---
+[
+    Patch {
+        commit: Some(
+            "abc123",
+        ),
+        subject: Some(
+            "[PATCH] empty patch",
+        ),
+        from: Some(
+            "Alice <alice@example.com>",
+        ),
+        date: Some(
+            "Wed, 1 Jan 2020 00:00:00 +0000",
+        ),
+        diff: [],
+    },
+]

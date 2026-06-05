@@ -1,0 +1,11 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: r
+---
+[
+    GitGrepResult {
+        path: "a.txt",
+        line: 1,
+        text: "x: y: z",
+    },
+]

@@ -1,0 +1,11 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: entry
+---
+GitLogEntry {
+    sha: "abc123",
+    short_sha: "abc123",
+    message: "hello",
+    author: "alice",
+    timestamp: "1700000000",
+}

@@ -27,7 +27,7 @@ All higher-level modules (`repo`, `parse`) build on top of this primitive.
 - The `git` binary path is resolved once at construction time, not per-call.
 - All commands set `current_dir()` to the repository root.
 - All commands set `kill_on_drop(true)` to prevent zombie processes.
-- `run_with_timeout` must apply `tokio::time::timeout` (currently a known gap).
+- `run_with_timeout` applies `tokio::time::timeout` to prevent hangs from rogue processes.
 
 ## Consumers
 

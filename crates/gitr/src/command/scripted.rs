@@ -113,4 +113,22 @@ mod tests {
         let err = runner.run(&["fetch", "origin"]).await.unwrap_err();
         assert!(matches!(err, GitError::Io(ref s) if s.contains("unscripted")));
     }
+
+    #[tokio::test]
+    async fn test_scripted_runner_run_with_env() {
+        let mut runner = ScriptedRunner::new();
+        runner.script(
+            "status --porcelain",
+            Ok(CommandOutput {
+                stdout: " M file.txt".to_string(),
+                stderr: String::new(),
+                exit_code: 0,
+            }),
+        );
+        let out = runner
+            .run_with_env(&["status", "--porcelain"], &[("FOO", "bar")])
+            .await
+            .unwrap();
+        assert_eq!(out.stdout, " M file.txt");
+    }
 }

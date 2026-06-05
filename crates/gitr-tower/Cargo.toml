@@ -1,0 +1,19 @@
+[package]
+name = "gitr-tower"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Tower Service integration for gitr."
+
+[dependencies]
+gitr = { workspace = true }
+tokio = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+futures = "0.3"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
+tempfile = "3"

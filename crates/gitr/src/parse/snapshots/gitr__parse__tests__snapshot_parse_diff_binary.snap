@@ -1,0 +1,19 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: files
+---
+[
+    FileDiff {
+        old_path: Some(
+            "image.png",
+        ),
+        new_path: Some(
+            "image.png",
+        ),
+        is_binary: true,
+        mode_changed: false,
+        old_mode: None,
+        new_mode: None,
+        hunks: [],
+    },
+]

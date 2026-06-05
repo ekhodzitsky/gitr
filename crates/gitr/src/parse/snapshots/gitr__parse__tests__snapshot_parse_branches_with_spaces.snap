@@ -1,0 +1,8 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: b
+---
+[
+    "my branch",
+    "another branch name",
+]

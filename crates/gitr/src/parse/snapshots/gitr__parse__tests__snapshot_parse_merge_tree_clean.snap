@@ -1,0 +1,11 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: m
+---
+GitMergeResult {
+    has_conflicts: false,
+    conflict_files: [],
+    tree_oid: Some(
+        "aabbccdd00112233445566778899aabbccdd0011",
+    ),
+}

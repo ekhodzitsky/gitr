@@ -1,0 +1,94 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: patches
+---
+[
+    Patch {
+        commit: Some(
+            "abc123",
+        ),
+        subject: Some(
+            "[PATCH] first patch",
+        ),
+        from: Some(
+            "Alice <alice@example.com>",
+        ),
+        date: Some(
+            "Wed, 1 Jan 2020 00:00:00 +0000",
+        ),
+        diff: [
+            FileDiff {
+                old_path: Some(
+                    "file.txt",
+                ),
+                new_path: Some(
+                    "file.txt",
+                ),
+                is_binary: false,
+                mode_changed: false,
+                old_mode: None,
+                new_mode: None,
+                hunks: [
+                    DiffHunk {
+                        old_start: 1,
+                        old_lines: 1,
+                        new_start: 1,
+                        new_lines: 1,
+                        section: "",
+                        lines: [
+                            DiffLine {
+                                kind: Deletion,
+                                content: "old",
+                            },
+                            DiffLine {
+                                kind: Insertion,
+                                content: "new",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
+    Patch {
+        commit: Some(
+            "def456",
+        ),
+        subject: Some(
+            "[PATCH] second patch",
+        ),
+        from: Some(
+            "Bob <bob@example.com>",
+        ),
+        date: Some(
+            "Thu, 2 Jan 2020 00:00:00 +0000",
+        ),
+        diff: [
+            FileDiff {
+                old_path: None,
+                new_path: Some(
+                    "other.txt",
+                ),
+                is_binary: false,
+                mode_changed: false,
+                old_mode: None,
+                new_mode: None,
+                hunks: [
+                    DiffHunk {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 1,
+                        new_lines: 1,
+                        section: "",
+                        lines: [
+                            DiffLine {
+                                kind: Insertion,
+                                content: "hello",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
+]

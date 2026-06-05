@@ -1,0 +1,41 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: files
+---
+[
+    FileDiff {
+        old_path: Some(
+            "script.sh",
+        ),
+        new_path: Some(
+            "script.sh",
+        ),
+        is_binary: false,
+        mode_changed: true,
+        old_mode: Some(
+            "100644",
+        ),
+        new_mode: Some(
+            "100755",
+        ),
+        hunks: [
+            DiffHunk {
+                old_start: 1,
+                old_lines: 1,
+                new_start: 1,
+                new_lines: 1,
+                section: "",
+                lines: [
+                    DiffLine {
+                        kind: Deletion,
+                        content: "old content",
+                    },
+                    DiffLine {
+                        kind: Insertion,
+                        content: "new content",
+                    },
+                ],
+            },
+        ],
+    },
+]

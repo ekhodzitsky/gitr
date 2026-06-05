@@ -1,0 +1,14 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: lines
+---
+[
+    BlameLine {
+        commit: "abc123",
+        author: "Alice",
+        author_mail: "alice@example.com",
+        author_time: "1700000000",
+        line_no: 1,
+        content: "",
+    },
+]

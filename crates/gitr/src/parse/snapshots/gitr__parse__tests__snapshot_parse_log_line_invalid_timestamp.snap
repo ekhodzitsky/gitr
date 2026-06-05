@@ -1,0 +1,7 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: err
+---
+Parse(
+    "invalid timestamp in log line 'abc123|msg|author|bad': invalid digit found in string",
+)

@@ -1,0 +1,17 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: m
+---
+GitMergeResult {
+    has_conflicts: true,
+    conflict_files: [
+        "del.txt",
+        "dir.txt",
+        "file.txt",
+        "mod.txt",
+        "old.txt",
+        "ren.txt",
+        "src/main.rs",
+    ],
+    tree_oid: None,
+}

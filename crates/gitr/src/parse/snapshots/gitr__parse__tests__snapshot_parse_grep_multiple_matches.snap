@@ -1,0 +1,21 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: r
+---
+[
+    GitGrepResult {
+        path: "src/main.rs",
+        line: 1,
+        text: "fn foo() {}",
+    },
+    GitGrepResult {
+        path: "src/main.rs",
+        line: 2,
+        text: "fn bar() {}",
+    },
+    GitGrepResult {
+        path: "src/lib.rs",
+        line: 10,
+        text: "struct Baz;",
+    },
+]

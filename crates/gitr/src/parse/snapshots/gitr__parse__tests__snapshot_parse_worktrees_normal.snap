@@ -1,0 +1,14 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: w
+---
+[
+    GitWorktree {
+        path: "/tmp/wt1",
+        branch: "main",
+    },
+    GitWorktree {
+        path: "/tmp/wt2",
+        branch: "feature/x",
+    },
+]

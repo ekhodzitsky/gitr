@@ -1,0 +1,13 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: s
+---
+[
+    GitSubmodule {
+        sha: "4a20283f8c33c1e9f12ab234a1e5b1e1e8e3e1e1",
+        path: "submodules/baz",
+        describe: None,
+        dirty: false,
+        uninitialized: true,
+    },
+]

@@ -33,6 +33,31 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  git-compat:
+    name: git-compat (git ${{ matrix.git }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        git: ['2.30.9', '2.40.1', '2.45.1']
+    container:
+      image: rust:1.80-slim
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y wget build-essential libssl-dev libcurl4-openssl-dev libexpat1-dev gettext zlib1g-dev pkg-config
+      - name: Build and install git ${{ matrix.git }}
+        run: |
+          wget -q "https://mirrors.edge.kernel.org/pub/software/scm/git/git-${{ matrix.git }}.tar.gz"
+          tar -xzf "git-${{ matrix.git }}.tar.gz"
+          cd "git-${{ matrix.git }}"
+          make prefix=/usr/local all -j$(nproc)
+          make prefix=/usr/local install
+      - run: git --version
+      - run: cargo test --workspace --all-features --locked
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
   typos:
     runs-on: ubuntu-latest
     steps:

@@ -6,3 +6,6 @@
 .DS_Store
 demo.sh
 demo.cast
+# Fuzz build artifacts
+crates/gitr/fuzz/target/
+

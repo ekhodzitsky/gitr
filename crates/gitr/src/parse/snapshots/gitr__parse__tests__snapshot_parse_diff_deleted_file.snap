@@ -1,0 +1,35 @@
+---
+source: crates/gitr/src/parse/mod.rs
+expression: files
+---
+[
+    FileDiff {
+        old_path: Some(
+            "old.txt",
+        ),
+        new_path: None,
+        is_binary: false,
+        mode_changed: false,
+        old_mode: None,
+        new_mode: None,
+        hunks: [
+            DiffHunk {
+                old_start: 1,
+                old_lines: 2,
+                new_start: 0,
+                new_lines: 0,
+                section: "",
+                lines: [
+                    DiffLine {
+                        kind: Deletion,
+                        content: "hello",
+                    },
+                    DiffLine {
+                        kind: Deletion,
+                        content: "world",
+                    },
+                ],
+            },
+        ],
+    },
+]

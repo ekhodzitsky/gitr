@@ -27,21 +27,28 @@
 
 mod api;
 mod cache;
+mod circuit;
 mod command;
 mod error;
-mod parse;
+/// Git CLI output parsers.
+pub mod parse;
 mod repo;
 mod types;
 
 pub use api::GitApi;
 pub use cache::Cache;
+pub use circuit::CircuitBreaker;
 pub use command::CommandOutput;
 
 #[cfg(any(test, feature = "test-utils"))]
 pub use command::ScriptedRunner;
 pub use error::GitError as Error;
-pub use parse::DiffShortstat;
 pub use repo::Repository;
 pub use types::{
-    GitLogEntry, GitMergeResult, GitRemote, GitStash, GitStatus, GitTag, GitWorktree, ResetMode,
+    ApplyReport, BisectResult, BisectState, BlameLine, CherryPickOptions, CloneOptions,
+    CommitOptions, DiffHunk, DiffLine, DiffLineKind, FetchOptions, FileDiff, GitAttr, GitCommit,
+    GitGrepResult, GitLfsFile, GitLogEntry, GitMergeResult, GitNote, GitRemote, GitStash,
+    GitStatus, GitSubmodule, GitTag, GitVerification, GitVersion, GitWorktree, Hook, HookOutput,
+    IndexEntry, MergeOptions, ObjectContent, ObjectKind, Oid, Patch, PushOptions, RebaseOptions,
+    ReflogEntry, ResetMode, TreeEntry,
 };
