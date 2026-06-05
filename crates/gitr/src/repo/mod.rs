@@ -1545,12 +1545,14 @@ impl Repository {
         ref_name: &str,
         expire_time: Option<&str>,
     ) -> Result<(), GitError> {
-        let mut args = vec!["reflog", "expire", ref_name];
+        let mut args: Vec<String> = vec!["reflog".into(), "expire".into(), ref_name.into()];
         if let Some(time) = expire_time {
-            args.push("--expire");
-            args.push(time);
+            // git <2.38 requires `--expire=time` (single token); newer versions
+            // accept both forms. Use the compatible form.
+            args.push(format!("--expire={time}"));
         }
-        self.cmd.run(&args).await?;
+        let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        self.cmd.run(&args_ref).await?;
         Ok(())
     }
 

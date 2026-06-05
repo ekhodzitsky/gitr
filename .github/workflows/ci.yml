@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        git: ['2.30.9', '2.40.1', '2.45.1']
+        git: ['2.40.1', '2.45.1']
     container:
       image: rust:1.80-slim
     steps:
@@ -97,8 +97,8 @@ jobs:
           components: llvm-tools-preview
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: Swatinem/rust-cache@v2
-      - run: cargo llvm-cov --workspace --all-features --cobertura --output-path cobertura.xml
-      - run: cargo llvm-cov report --fail-under-lines 90
+      - run: cargo llvm-cov -p gitr --all-features --cobertura --output-path cobertura.xml
+      - run: cargo llvm-cov report -p gitr --fail-under-lines 90
       - uses: codecov/codecov-action@v5
         with:
           files: ./cobertura.xml

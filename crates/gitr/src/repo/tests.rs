@@ -962,6 +962,7 @@ async fn test_reflog_list() {
 }
 
 #[tokio::test]
+#[cfg(unix)]
 async fn test_hooks_list_install_remove_run() {
     if !git_available() {
         return;
@@ -987,6 +988,7 @@ async fn test_hooks_list_install_remove_run() {
 }
 
 #[tokio::test]
+#[cfg(unix)]
 async fn test_run_hook_with_timeout() {
     if !git_available() {
         return;
@@ -1004,6 +1006,7 @@ async fn test_run_hook_with_timeout() {
 }
 
 #[tokio::test]
+#[cfg(unix)]
 async fn test_run_hook_with_timeout_expires() {
     if !git_available() {
         return;
@@ -1021,6 +1024,7 @@ async fn test_run_hook_with_timeout_expires() {
 }
 
 #[tokio::test]
+#[cfg(unix)]
 async fn test_run_hook_streaming() {
     if !git_available() {
         return;

@@ -509,7 +509,11 @@ mod tests {
         let cmd = GitCommand::new_with_git_bin(tmp.path().to_path_buf(), script)
             .with_timeout(Duration::from_millis(100));
         let err = cmd.run(&["status"]).await.unwrap_err();
-        assert!(matches!(err, GitError::Timeout(_, _)), "expected Timeout, got {:?}", err);
+        assert!(
+            matches!(err, GitError::Timeout(_, _)),
+            "expected Timeout, got {:?}",
+            err
+        );
     }
 
     #[tokio::test]
@@ -621,7 +625,8 @@ mod tests {
     #[test]
     fn test_git_bin_path_and_version() {
         let path = git_bin_path().unwrap();
-        assert!(path.file_name().unwrap() == "git");
+        let name = path.file_name().unwrap().to_str().unwrap();
+        assert!(name == "git" || name == "git.exe");
         let version = git_version().unwrap();
         assert!(version.major >= 2);
     }
@@ -675,7 +680,11 @@ mod tests {
             cancel.cancel();
         });
         let err = cmd.run(&["fetch", "origin"]).await.unwrap_err();
-        assert!(matches!(err, GitError::Io(ref s) if s == "cancelled"), "expected cancelled, got {:?}", err);
+        assert!(
+            matches!(err, GitError::Io(ref s) if s == "cancelled"),
+            "expected cancelled, got {:?}",
+            err
+        );
     }
 
     #[tokio::test]
@@ -712,6 +721,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
     async fn test_cancel_success() {
         let tmp = tempfile::tempdir().unwrap();
         let script = tmp.path().join("git");

@@ -82,7 +82,9 @@ async fn worktree_add_and_remove() {
 
     let wts = repo.worktree_list().await.unwrap();
     let canonical_wt = wt_path.canonicalize().unwrap_or(wt_path.clone());
-    assert!(wts.iter().any(|wt| wt.path == canonical_wt));
+    assert!(wts
+        .iter()
+        .any(|wt| { wt.path.canonicalize().unwrap_or(wt.path.clone()) == canonical_wt }));
 
     repo.worktree_remove(&wt_path, false).await.unwrap();
 }
