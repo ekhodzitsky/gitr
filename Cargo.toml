@@ -4,7 +4,7 @@ exclude = ["crates/gitr/fuzz"]
 resolver = "2"
 
 [workspace.package]
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 rust-version = "1.80"
 license = "MIT"
@@ -16,4 +16,4 @@ tokio = { version = "1.44", features = ["rt-multi-thread", "macros", "process", 
 tokio-util = { version = "0.7", features = ["rt"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 criterion = "0.5"
-gitr = { path = "crates/gitr", version = "0.5.0" }
+gitr = { path = "crates/gitr", version = "0.5.1" }

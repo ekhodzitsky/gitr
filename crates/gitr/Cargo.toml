@@ -9,6 +9,7 @@ authors.workspace = true
 description = "Async typed git CLI wrapper for agents and automation."
 keywords = ["git", "async", "cli", "agent", "worktree"]
 categories = ["development-tools", "asynchronous"]
+readme = "../../README.md"
 exclude = [".git", "target"]
 
 [features]
