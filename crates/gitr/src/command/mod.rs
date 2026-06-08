@@ -1059,12 +1059,25 @@ mod tests {
 
         #[cfg(unix)]
         {
-            let status = std::process::Command::new("kill")
+            // Check the process is gone.  In minimal containers `kill` may be a
+            // shell builtin, so fall back to /proc on Linux.
+            let still_alive = std::process::Command::new("kill")
                 .args(["-0", &pid.to_string()])
                 .status()
-                .unwrap();
+                .map(|s| s.success())
+                .unwrap_or_else(|_| {
+                    #[cfg(target_os = "linux")]
+                    {
+                        std::path::Path::new(&format!("/proc/{pid}")).exists()
+                    }
+                    #[cfg(not(target_os = "linux"))]
+                    {
+                        // Unable to determine – skip the assertion.
+                        false
+                    }
+                });
             assert!(
-                !status.success(),
+                !still_alive,
                 "child process should have been killed on drop"
             );
         }
