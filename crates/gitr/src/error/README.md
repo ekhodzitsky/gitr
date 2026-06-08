@@ -25,7 +25,7 @@ fallback logic. This module is the **error boundary** of the crate.
 
 ## Invariants
 
-- Error messages are lowercase without trailing punctuation (`thiserror` convention).
+- Error messages are lowercase without trailing punctuation.
 - The `From<std::io::Error>` impl preserves the cause chain.
 - `CommandFailed` always includes the full command string for debugging.
 

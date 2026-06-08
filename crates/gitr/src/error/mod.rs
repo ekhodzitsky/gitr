@@ -1,20 +1,16 @@
 use std::path::PathBuf;
 use std::time::Duration;
-use thiserror::Error;
 
 /// Errors that can occur when interacting with git repositories.
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Clone)]
 pub enum GitError {
     /// The path is not a git repository.
-    #[error("not a git repository: {0}")]
     NotARepo(PathBuf),
 
     /// The `git` binary was not found in PATH.
-    #[error("git not found in PATH")]
     GitNotFound,
 
     /// A git command failed with a non-zero exit code.
-    #[error("command failed: {command} — exit {exit_code}, stderr: {stderr}")]
     CommandFailed {
         /// The full command string that was executed.
         command: String,
@@ -27,77 +23,115 @@ pub enum GitError {
     },
 
     /// The command timed out.
-    #[error("command timed out after {0:?}: {1}")]
     Timeout(Duration, String),
 
     /// The working tree is not clean.
-    #[error("repository is not clean: {0}")]
     Dirty(String),
 
     /// The branch already exists.
-    #[error("branch already exists: {0}")]
     BranchExists(String),
 
     /// The branch was not found.
-    #[error("branch not found: {0}")]
     BranchNotFound(String),
 
     /// The worktree already exists.
-    #[error("worktree already exists: {0}")]
     WorktreeExists(String),
 
     /// Merge conflicts were detected.
-    #[error("merge conflicts detected")]
     MergeConflicts(Vec<String>),
 
     /// An I/O error occurred.
-    #[error("io error: {0}")]
     Io(String),
 
     /// Failed to parse git output.
-    #[error("parse error: {0}")]
     Parse(String),
 
     /// Authentication is required but no credentials were provided.
-    #[error("authentication required")]
     AuthenticationRequired,
 
     /// A network error occurred.
-    #[error("network error: {0}")]
     NetworkError(String),
 
     /// A git hook rejected the operation.
-    #[error("hook rejected: {0}")]
     HookRejected(String),
 
     /// A rebase is already in progress.
-    #[error("rebase in progress")]
     RebaseInProgress,
 
     /// A merge is already in progress.
-    #[error("merge in progress")]
     MergeInProgress,
 
     /// A cherry-pick is already in progress.
-    #[error("cherry-pick in progress")]
     CherryPickInProgress,
 
     /// Nothing to commit.
-    #[error("nothing to commit")]
     NothingToCommit,
 
     /// Unmerged paths prevent the operation.
-    #[error("unmerged paths")]
     UnmergedPaths(Vec<String>),
 
     /// The remote was not found.
-    #[error("remote not found: {0}")]
     RemoteNotFound(String),
 
     /// The tag was not found.
-    #[error("tag not found: {0}")]
     TagNotFound(String),
+
+    /// The object was not found.
+    ObjectNotFound(String),
 }
+
+impl std::fmt::Display for GitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GitError::NotARepo(path) => write!(f, "not a git repository: {}", path.display()),
+            GitError::GitNotFound => write!(f, "git not found in PATH"),
+            GitError::CommandFailed {
+                command,
+                exit_code,
+                stderr,
+                ..
+            } => write!(
+                f,
+                "command failed: {command} — exit {exit_code}, stderr: {stderr}"
+            ),
+            GitError::Timeout(duration, command) => {
+                write!(f, "command timed out after {duration:?}: {command}")
+            }
+            GitError::Dirty(msg) => write!(f, "repository is not clean: {msg}"),
+            GitError::BranchExists(name) => write!(f, "branch already exists: {name}"),
+            GitError::BranchNotFound(name) => write!(f, "branch not found: {name}"),
+            GitError::WorktreeExists(path) => write!(f, "worktree already exists: {path}"),
+            GitError::MergeConflicts(paths) => {
+                write!(f, "merge conflicts detected")?;
+                if !paths.is_empty() {
+                    write!(f, ": {}", paths.join(", "))?;
+                }
+                Ok(())
+            }
+            GitError::Io(msg) => write!(f, "io error: {msg}"),
+            GitError::Parse(msg) => write!(f, "parse error: {msg}"),
+            GitError::AuthenticationRequired => write!(f, "authentication required"),
+            GitError::NetworkError(msg) => write!(f, "network error: {msg}"),
+            GitError::HookRejected(msg) => write!(f, "hook rejected: {msg}"),
+            GitError::RebaseInProgress => write!(f, "rebase in progress"),
+            GitError::MergeInProgress => write!(f, "merge in progress"),
+            GitError::CherryPickInProgress => write!(f, "cherry-pick in progress"),
+            GitError::NothingToCommit => write!(f, "nothing to commit"),
+            GitError::UnmergedPaths(paths) => {
+                write!(f, "unmerged paths")?;
+                if !paths.is_empty() {
+                    write!(f, ": {}", paths.join(", "))?;
+                }
+                Ok(())
+            }
+            GitError::RemoteNotFound(name) => write!(f, "remote not found: {name}"),
+            GitError::TagNotFound(name) => write!(f, "tag not found: {name}"),
+            GitError::ObjectNotFound(sha) => write!(f, "object not found: {sha}"),
+        }
+    }
+}
+
+impl std::error::Error for GitError {}
 
 impl GitError {
     /// Classify a failed command into the most specific error variant.

@@ -4,7 +4,7 @@ Async git CLI executor. Wraps `tokio::process::Command` with timeouts and output
 
 ## Purpose
 
-This module is the **I/O edge** of `gitr`. It discovers the `git` binary via `which`,
+This module is the **I/O edge** of `gitr`. It discovers the `git` binary via `PATH` search,
 spawns subprocesses with `tokio::process::Command`, and captures stdout/stderr/exit code.
 All higher-level modules (`repo`, `parse`) build on top of this primitive.
 

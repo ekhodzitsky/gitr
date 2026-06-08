@@ -1,36 +1,80 @@
-use crate::types::GitStatus;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
-/// Simple in-memory cache for frequently accessed git state.
-///
-/// The cache is scoped to a single `Repository` handle and is *not*
-/// synchronized across clones. Call [`Cache::invalidate`] after any
-/// mutating operation to keep subsequent reads consistent.
-#[derive(Debug, Clone, Default)]
+/// A single cached value with an expiration time.
+#[derive(Clone, Debug)]
+struct CacheEntry<T> {
+    value: T,
+    expires_at: Instant,
+}
+
+/// Simple in-memory TTL cache for expensive git operations.
+#[derive(Clone, Debug)]
 pub struct Cache {
-    status: Arc<RwLock<Option<GitStatus>>>,
+    inner: Arc<Mutex<HashMap<String, CacheEntry<String>>>>,
+    default_ttl: Duration,
 }
 
 impl Cache {
-    /// Create a new empty cache.
-    pub fn new() -> Self {
-        Self::default()
+    /// Create a new cache with the given default TTL.
+    pub fn new(default_ttl: Duration) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(HashMap::new())),
+            default_ttl,
+        }
     }
 
-    /// Get cached status if available.
-    pub async fn get_status(&self) -> Option<GitStatus> {
-        self.status.read().await.clone()
+    /// Get a cached value if it exists and has not expired.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned.
+    pub fn get(&self, key: &str) -> Option<String> {
+        let mut map = self.inner.lock().unwrap();
+        if let Some(entry) = map.get(key) {
+            if Instant::now() < entry.expires_at {
+                return Some(entry.value.clone());
+            }
+            map.remove(key);
+        }
+        None
     }
 
-    /// Store status in the cache.
-    pub async fn set_status(&self, status: GitStatus) {
-        *self.status.write().await = Some(status);
+    /// Insert a value into the cache with the default TTL.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned.
+    pub fn set(&self, key: String, value: String) {
+        let mut map = self.inner.lock().unwrap();
+        map.insert(
+            key,
+            CacheEntry {
+                value,
+                expires_at: Instant::now() + self.default_ttl,
+            },
+        );
+    }
+
+    /// Remove a single key from the cache.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned.
+    pub fn invalidate(&self, key: &str) {
+        let mut map = self.inner.lock().unwrap();
+        map.remove(key);
     }
 
     /// Clear all cached entries.
-    pub async fn invalidate(&self) {
-        *self.status.write().await = None;
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned.
+    pub fn clear(&self) {
+        let mut map = self.inner.lock().unwrap();
+        map.clear();
     }
 }
 
@@ -38,52 +82,32 @@ impl Cache {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_cache_new_empty() {
-        let cache = Cache::new();
-        assert!(cache.get_status().await.is_none());
+    #[test]
+    fn test_cache_hit() {
+        let cache = Cache::new(Duration::from_secs(60));
+        cache.set("key".to_string(), "value".to_string());
+        assert_eq!(cache.get("key"), Some("value".to_string()));
     }
 
-    #[tokio::test]
-    async fn test_cache_set_and_get() {
-        let cache = Cache::new();
-        let status = GitStatus {
-            staged: vec!["a.txt".to_string()],
-            unstaged: vec![],
-            untracked: vec![],
-        };
-        cache.set_status(status.clone()).await;
-        let got = cache.get_status().await.unwrap();
-        assert_eq!(got.staged, status.staged);
-        assert!(got.unstaged.is_empty());
-        assert!(got.untracked.is_empty());
+    #[test]
+    fn test_cache_miss() {
+        let cache = Cache::new(Duration::from_secs(60));
+        assert_eq!(cache.get("missing"), None);
     }
 
-    #[tokio::test]
-    async fn test_cache_invalidate() {
-        let cache = Cache::new();
-        let status = GitStatus {
-            staged: vec!["a.txt".to_string()],
-            unstaged: vec![],
-            untracked: vec![],
-        };
-        cache.set_status(status).await;
-        cache.invalidate().await;
-        assert!(cache.get_status().await.is_none());
+    #[test]
+    fn test_cache_expiry() {
+        let cache = Cache::new(Duration::from_millis(1));
+        cache.set("key".to_string(), "value".to_string());
+        std::thread::sleep(Duration::from_millis(10));
+        assert_eq!(cache.get("key"), None);
     }
 
-    #[tokio::test]
-    async fn test_cache_clone_shares_state() {
-        let cache = Cache::new();
-        let status = GitStatus {
-            staged: vec!["b.txt".to_string()],
-            unstaged: vec![],
-            untracked: vec![],
-        };
-        cache.set_status(status.clone()).await;
-        let cache2 = cache.clone();
-        assert_eq!(cache2.get_status().await.unwrap().staged, status.staged);
-        cache2.invalidate().await;
-        assert!(cache.get_status().await.is_none());
+    #[test]
+    fn test_cache_invalidate() {
+        let cache = Cache::new(Duration::from_secs(60));
+        cache.set("key".to_string(), "value".to_string());
+        cache.invalidate("key");
+        assert_eq!(cache.get("key"), None);
     }
 }

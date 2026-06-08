@@ -8,8 +8,16 @@ use tokio::process::Command;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
-static GIT_BIN_PATH: LazyLock<Result<PathBuf, GitError>> =
-    LazyLock::new(|| which::which("git").map_err(|_| GitError::GitNotFound));
+static GIT_BIN_PATH: LazyLock<Result<PathBuf, GitError>> = LazyLock::new(|| {
+    let exe = if cfg!(windows) { "git.exe" } else { "git" };
+    std::env::var_os("PATH")
+        .and_then(|paths| {
+            std::env::split_paths(&paths)
+                .map(|p| p.join(exe))
+                .find(|p| p.is_file())
+        })
+        .ok_or(GitError::GitNotFound)
+});
 
 static GIT_VERSION: LazyLock<Result<GitVersion, GitError>> = LazyLock::new(|| {
     let git_bin = git_bin_path()?;
@@ -189,6 +197,15 @@ impl GitCommand {
     pub fn with_cancel(mut self, cancel: CancellationToken) -> Self {
         self.cancel = Some(cancel);
         self
+    }
+
+    /// Spawn a `git cat-file --batch` process for bulk object lookups.
+    ///
+    /// The returned [`BatchProcess`] keeps the git child process alive.
+    /// It is killed when the [`BatchProcess`] is dropped.
+    #[allow(dead_code)]
+    pub fn cat_file_batch(&self) -> Result<BatchProcess, GitError> {
+        BatchProcess::spawn_with_timeout(&self.cwd, &self.git_bin, self.timeout)
     }
 
     /// Run a git command with the given arguments.
@@ -466,6 +483,110 @@ fn is_retryable(stderr: &str) -> bool {
     needle.contains("unable to access")
         || needle.contains("timeout")
         || needle.contains("early eof")
+}
+
+/// A long-running `git cat-file --batch` process for bulk object reads.
+pub struct BatchProcess {
+    #[allow(dead_code)]
+    child: tokio::process::Child,
+    stdin: tokio::process::ChildStdin,
+    stdout: tokio::io::BufReader<tokio::process::ChildStdout>,
+    timeout: Duration,
+}
+
+impl BatchProcess {
+    /// Spawn a new `git cat-file --batch` process in the given repo.
+    pub fn spawn(cwd: &std::path::Path, git_bin: &std::path::Path) -> Result<Self, GitError> {
+        Self::spawn_with_timeout(cwd, git_bin, GIT_TIMEOUT)
+    }
+
+    /// Spawn a new `git cat-file --batch` process with a custom per-lookup timeout.
+    pub fn spawn_with_timeout(
+        cwd: &std::path::Path,
+        git_bin: &std::path::Path,
+        timeout: Duration,
+    ) -> Result<Self, GitError> {
+        let mut child = tokio::process::Command::new(git_bin)
+            .current_dir(cwd)
+            .arg("cat-file")
+            .arg("--batch")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .map_err(|e| GitError::Io(format!("failed to spawn cat-file --batch: {e}")))?;
+
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| GitError::Io("failed to open cat-file stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| GitError::Io("failed to open cat-file stdout".to_string()))?;
+        Ok(Self {
+            child,
+            stdin,
+            stdout: tokio::io::BufReader::new(stdout),
+            timeout,
+        })
+    }
+
+    /// Look up a single object. Format: `<sha>\n` → `<size> <type>\n<data>`
+    pub async fn lookup(&mut self, object: &str) -> Result<(String, Vec<u8>), GitError> {
+        use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
+
+        let fut = async {
+            // Write request
+            self.stdin
+                .write_all(format!("{}\n", object).as_bytes())
+                .await
+                .map_err(|e| GitError::Io(format!("batch stdin: {e}")))?;
+            self.stdin
+                .flush()
+                .await
+                .map_err(|e| GitError::Io(format!("batch flush: {e}")))?;
+
+            // Read response header: "<sha> <type> <size>\n" or "<sha> missing\n"
+            let mut header = String::new();
+            self.stdout
+                .read_line(&mut header)
+                .await
+                .map_err(|e| GitError::Io(format!("batch stdout: {e}")))?;
+
+            let parts: Vec<&str> = header.split_whitespace().collect();
+            if parts.len() == 2 && parts[1] == "missing" {
+                return Err(GitError::ObjectNotFound(object.to_string()));
+            }
+            if parts.len() != 3 {
+                return Err(GitError::Io(format!("unexpected batch response: {header}")));
+            }
+
+            let size: usize = parts[2]
+                .parse()
+                .map_err(|_| GitError::Io(format!("invalid batch size: {}", parts[2])))?;
+
+            let mut data = vec![0u8; size];
+            self.stdout
+                .read_exact(&mut data)
+                .await
+                .map_err(|e| GitError::Io(format!("batch read data: {e}")))?;
+
+            // Consume trailing newline after data
+            let mut newline = [0u8; 1];
+            self.stdout
+                .read_exact(&mut newline)
+                .await
+                .map_err(|e| GitError::Io(format!("batch read newline: {e}")))?;
+
+            Ok((parts[1].to_string(), data)) // (type, data)
+        };
+
+        tokio::time::timeout(self.timeout, fut)
+            .await
+            .map_err(|_| GitError::Timeout(self.timeout, "cat-file --batch".to_string()))?
+    }
 }
 
 #[cfg(test)]
@@ -811,5 +932,152 @@ mod tests {
             .with_max_retries(1);
         let err = cmd.run(&["fetch", "origin"]).await.unwrap_err();
         assert!(matches!(err, GitError::Timeout(_, _)));
+    }
+
+    #[tokio::test]
+    async fn test_batch_process_spawn_and_lookup() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path();
+
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["init"])
+            .output()
+            .unwrap();
+
+        std::fs::write(repo.join("file.txt"), "hello").unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["add", "file.txt"])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["commit", "-m", "test", "--no-gpg-sign"])
+            .output()
+            .unwrap();
+
+        let git_bin = git_bin_path().unwrap();
+        let mut batch = BatchProcess::spawn(repo, &git_bin).unwrap();
+
+        // Look up HEAD commit
+        let (obj_type, data) = batch.lookup("HEAD").await.unwrap();
+        assert_eq!(obj_type, "commit");
+        assert!(!data.is_empty());
+        let content = String::from_utf8_lossy(&data);
+        assert!(content.contains("test"));
+
+        // Look up the blob
+        let blob_sha = std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["hash-object", "file.txt"])
+            .output()
+            .unwrap()
+            .stdout;
+        let blob_sha = String::from_utf8_lossy(&blob_sha).trim().to_string();
+        let (obj_type, data) = batch.lookup(&blob_sha).await.unwrap();
+        assert_eq!(obj_type, "blob");
+        assert_eq!(data, b"hello");
+    }
+
+    #[tokio::test]
+    async fn test_batch_process_missing_object() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["init"])
+            .output()
+            .unwrap();
+
+        let git_bin = git_bin_path().unwrap();
+        let mut batch = BatchProcess::spawn(repo, &git_bin).unwrap();
+        let err = batch
+            .lookup("0000000000000000000000000000000000000000")
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, GitError::ObjectNotFound(ref s) if s == "0000000000000000000000000000000000000000")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_batch_process_kill_on_drop() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["init"])
+            .output()
+            .unwrap();
+        std::fs::write(repo.join("file.txt"), "hello").unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["add", "file.txt"])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["commit", "-m", "test", "--no-gpg-sign"])
+            .output()
+            .unwrap();
+
+        let git_bin = git_bin_path().unwrap();
+        let mut batch = BatchProcess::spawn(repo, &git_bin).unwrap();
+
+        // Verify it works
+        let _ = batch.lookup("HEAD").await.unwrap();
+
+        #[cfg(unix)]
+        let pid = batch.child.id().unwrap();
+
+        drop(batch);
+
+        // Give tokio a moment to deliver the kill signal
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        #[cfg(unix)]
+        {
+            let status = std::process::Command::new("kill")
+                .args(["-0", &pid.to_string()])
+                .status()
+                .unwrap();
+            assert!(
+                !status.success(),
+                "child process should have been killed on drop"
+            );
+        }
+
+        // Verify we can create a new batch process in the same repo
+        let mut batch2 = BatchProcess::spawn(repo, &git_bin).unwrap();
+        let _ = batch2.lookup("HEAD").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_git_command_cat_file_batch() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["init"])
+            .output()
+            .unwrap();
+        std::fs::write(repo.join("file.txt"), "hello").unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["add", "file.txt"])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["commit", "-m", "test", "--no-gpg-sign"])
+            .output()
+            .unwrap();
+
+        let cmd = GitCommand::new(repo).unwrap();
+        let mut batch = cmd.cat_file_batch().unwrap();
+        let (obj_type, data) = batch.lookup("HEAD").await.unwrap();
+        assert_eq!(obj_type, "commit");
+        assert!(!data.is_empty());
     }
 }

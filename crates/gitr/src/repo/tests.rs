@@ -7,11 +7,18 @@ use tempfile::TempDir;
 use tokio_stream::StreamExt;
 
 fn git_available() -> bool {
-    which::which("git").is_ok()
+    std::process::Command::new("git")
+        .arg("--version")
+        .output()
+        .is_ok()
 }
 
 fn git_lfs_available() -> bool {
-    git_available() && which::which("git-lfs").is_ok()
+    git_available()
+        && std::process::Command::new("git-lfs")
+            .arg("--version")
+            .output()
+            .is_ok()
 }
 
 fn run_git(dir: &std::path::Path, args: &[&str]) {
@@ -2239,11 +2246,11 @@ async fn test_with_cache_hit_and_invalidate() {
     let repo = Repository::open(tmp.path())
         .await
         .unwrap()
-        .with_cache(crate::cache::Cache::new());
+        .with_cache(crate::cache::Cache::new(Duration::from_secs(60)));
     let s1 = repo.status().await.unwrap();
     let s2 = repo.status().await.unwrap();
     assert_eq!(s1.untracked, s2.untracked);
-    repo.invalidate_cache().await;
+    repo.invalidate_cache();
 }
 
 #[tokio::test]

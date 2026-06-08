@@ -38,6 +38,7 @@ mod types;
 pub use api::GitApi;
 pub use cache::Cache;
 pub use circuit::CircuitBreaker;
+pub use command::BatchProcess;
 pub use command::CommandOutput;
 
 #[cfg(any(test, feature = "test-utils"))]

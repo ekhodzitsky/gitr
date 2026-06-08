@@ -2,7 +2,10 @@ use gitr::Repository;
 use std::path::PathBuf;
 
 fn git_available() -> bool {
-    which::which("git").is_ok()
+    std::process::Command::new("git")
+        .arg("--version")
+        .output()
+        .is_ok()
 }
 
 fn git_binary() -> PathBuf {

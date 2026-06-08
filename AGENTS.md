@@ -133,7 +133,7 @@ This crate shells out to the `git` binary. Compatibility with git CLI behavior i
 
 - Every git command invocation must specify the working directory via `current_dir()`.
 - Environment variables must be explicitly set per-invocation (e.g. `GIT_EDITOR=true` for rebase).
-- The `git` binary must be discovered via `which::which("git")` at initialization time, not per-call.
+- The `git` binary must be discovered via `PATH` search at initialization time, not per-call.
 
 ### 2. Porcelain Format Stability
 

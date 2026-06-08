@@ -23,6 +23,7 @@ pub struct DiffShortstat {
 /// Check whether the detected git version is newer than what parsers were tested against.
 #[cfg_attr(feature = "tracing", tracing::instrument)]
 pub fn check_git_version_compat(version: GitVersion) {
+    let _ = version;
     #[cfg(feature = "tracing")]
     if version
         > (GitVersion {

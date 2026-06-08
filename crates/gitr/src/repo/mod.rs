@@ -11,7 +11,9 @@ use crate::types::{
 };
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
+#[cfg(feature = "stream")]
 use std::pin::Pin;
+#[cfg(feature = "stream")]
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -382,9 +384,9 @@ impl Repository {
     }
 
     /// Invalidate the attached cache, if any.
-    pub async fn invalidate_cache(&self) {
+    pub fn invalidate_cache(&self) {
         if let Some(c) = &self.cache {
-            c.invalidate().await;
+            c.clear();
         }
     }
 
@@ -488,14 +490,14 @@ impl Repository {
     /// Parse and return structured status.
     pub async fn status(&self) -> Result<GitStatus, GitError> {
         if let Some(c) = &self.cache {
-            if let Some(cached) = c.get_status().await {
-                return Ok(cached);
+            if let Some(cached) = c.get("status") {
+                return parse::parse_status(&cached);
             }
         }
         let out = self.cmd.run(&["status", "--porcelain"]).await?;
         let status = parse::parse_status(&out.stdout)?;
         if let Some(c) = &self.cache {
-            c.set_status(status.clone()).await;
+            c.set("status".to_string(), out.stdout);
         }
         Ok(status)
     }
@@ -524,7 +526,7 @@ impl Repository {
             }
         }
         out?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(GitWorktree {
             path: path.to_path_buf(),
             branch: branch.to_string(),
@@ -545,7 +547,7 @@ impl Repository {
         }
         args.push(&path_str);
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -608,7 +610,7 @@ impl Repository {
             }
         }
         out?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -622,7 +624,7 @@ impl Repository {
             }
         }
         out?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -634,7 +636,7 @@ impl Repository {
         } else {
             self.cmd.run(&["branch", "-m", old, new]).await?;
         }
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -657,7 +659,7 @@ impl Repository {
             }
         }
         out?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -676,7 +678,7 @@ impl Repository {
             }
         }
         out?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -702,7 +704,7 @@ impl Repository {
             }
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -763,7 +765,7 @@ impl Repository {
         }
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         let _out = self.cmd.run(&args_ref).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         let sha = self.head_commit().await?;
         #[cfg(feature = "tracing")]
         debug!(%sha, "committed");
@@ -801,7 +803,7 @@ impl Repository {
             args.push("--set-upstream");
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -819,7 +821,7 @@ impl Repository {
     /// Push with `--force` (not `--force-with-lease`).
     pub async fn push_force(&self, remote: &str, branch: &str) -> Result<(), GitError> {
         self.cmd.run(&["push", "--force", remote, branch]).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -921,7 +923,7 @@ impl Repository {
             args.push("--no-rebase");
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -978,7 +980,7 @@ impl Repository {
     /// Stage all changes (including untracked).
     pub async fn add_all(&self) -> Result<(), GitError> {
         self.cmd.run(&["add", "-A"]).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -986,7 +988,7 @@ impl Repository {
     pub async fn add(&self, path: impl AsRef<Path>) -> Result<(), GitError> {
         let path_str = path.as_ref().to_string_lossy();
         self.cmd.run(&["add", &path_str]).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1000,7 +1002,7 @@ impl Repository {
         let src = source.as_ref().to_string_lossy();
         let dst = dest.as_ref().to_string_lossy();
         self.cmd.run(&["mv", &src, &dst]).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1016,7 +1018,7 @@ impl Repository {
         }
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         self.cmd.run(&args_ref).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1028,14 +1030,14 @@ impl Repository {
             args.push(msg);
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
     /// Pop the latest stash.
     pub async fn stash_pop(&self) -> Result<(), GitError> {
         self.cmd.run(&["stash", "pop"]).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1048,7 +1050,7 @@ impl Repository {
         }
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         self.cmd.run(&args_ref).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1061,7 +1063,7 @@ impl Repository {
         }
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         self.cmd.run(&args_ref).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1090,7 +1092,7 @@ impl Repository {
             args.push("--squash");
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1130,7 +1132,7 @@ impl Repository {
         }
         args.push(opts.branch);
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1146,7 +1148,7 @@ impl Repository {
     /// Abort an in-progress rebase.
     pub async fn rebase_abort(&self) -> Result<(), GitError> {
         self.cmd.run(&["rebase", "--abort"]).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1155,7 +1157,7 @@ impl Repository {
         self.cmd
             .run_with_env(&["rebase", "--continue"], &[("GIT_EDITOR", "true")])
             .await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1343,7 +1345,7 @@ impl Repository {
         args.push(name.into());
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         self.cmd.run(&args_ref).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1351,7 +1353,7 @@ impl Repository {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn tag_delete(&self, name: &str) -> Result<(), GitError> {
         self.cmd.run(&["tag", "-d", name]).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1374,7 +1376,7 @@ impl Repository {
         args.push(name.into());
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         self.cmd.run(&args_ref).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1749,7 +1751,7 @@ impl Repository {
             args.push(t);
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1938,7 +1940,7 @@ impl Repository {
             args.push(c);
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1962,7 +1964,7 @@ impl Repository {
             args.push(c);
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -1993,7 +1995,7 @@ impl Repository {
         args.push(message.into());
         let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         self.cmd.run(&args_ref).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -2053,7 +2055,7 @@ impl Repository {
                 path.as_ref().to_string_lossy().as_ref(),
             ])
             .await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -2068,7 +2070,7 @@ impl Repository {
             args.push("--recursive");
         }
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -2086,7 +2088,7 @@ impl Repository {
         let path_str = path.as_ref().to_string_lossy();
         args.push(&path_str);
         self.cmd.run(&args).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -2094,7 +2096,7 @@ impl Repository {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub async fn submodule_sync(&self) -> Result<(), GitError> {
         self.cmd.run(&["submodule", "sync", "--recursive"]).await?;
-        self.invalidate_cache().await;
+        self.invalidate_cache();
         Ok(())
     }
 
