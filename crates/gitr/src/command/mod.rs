@@ -944,6 +944,16 @@ mod tests {
             .args(["init"])
             .output()
             .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["config", "user.email", "test@test.com"])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["config", "user.name", "Test"])
+            .output()
+            .unwrap();
 
         std::fs::write(repo.join("file.txt"), "hello").unwrap();
         std::process::Command::new("git")
@@ -1010,6 +1020,17 @@ mod tests {
             .args(["init"])
             .output()
             .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["config", "user.email", "test@test.com"])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["config", "user.name", "Test"])
+            .output()
+            .unwrap();
+
         std::fs::write(repo.join("file.txt"), "hello").unwrap();
         std::process::Command::new("git")
             .current_dir(repo)
@@ -1062,6 +1083,17 @@ mod tests {
             .args(["init"])
             .output()
             .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["config", "user.email", "test@test.com"])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .current_dir(repo)
+            .args(["config", "user.name", "Test"])
+            .output()
+            .unwrap();
+
         std::fs::write(repo.join("file.txt"), "hello").unwrap();
         std::process::Command::new("git")
             .current_dir(repo)
