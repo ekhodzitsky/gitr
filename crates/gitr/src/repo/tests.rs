@@ -2246,7 +2246,7 @@ async fn test_with_cache_hit_and_invalidate() {
     let repo = Repository::open(tmp.path())
         .await
         .unwrap()
-        .with_cache(crate::cache::Cache::new(Duration::from_secs(60)));
+        .with_cache(crate::cache::Cache::with_ttl(Duration::from_secs(60)));
     let s1 = repo.status().await.unwrap();
     let s2 = repo.status().await.unwrap();
     assert_eq!(s1.untracked, s2.untracked);
