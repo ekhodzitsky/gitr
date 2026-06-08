@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 description = "Tower Service integration for gitr."
+publish = false
 
 [dependencies]
 gitr = { workspace = true }
