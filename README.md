@@ -31,7 +31,7 @@ for AI agent workflows — and it ships with a **CLI** and an **MCP server** out
 
 ```toml
 [dependencies]
-gitr = "0.4"
+gitr = "0.5"
 ```
 
 ### CLI
@@ -269,7 +269,7 @@ async fn main() -> Result<(), gitr::Error> {
 
 | Feature | Default | Description |
 |---|---|---|
-| `tracing` | ✅ | Emit `tracing` spans for command execution. |
+| `tracing` | ❌ | Emit `tracing` spans for command execution. |
 | `serde` | ❌ | Derive `Serialize`/`Deserialize` on public types (for JSON/MCP). |
 | `stream` | ❌ | Enable streaming APIs (`log_stream`, `grep_stream`, `blame_stream`, `ls_files_stream`) returning `impl Stream`. |
 | `metrics` | ❌ | Emit `metrics` counters and histograms for command execution. |
